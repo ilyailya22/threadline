@@ -1,0 +1,50 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+artifacts/
+TestResults/
+coverage/
+*.coverage
+*.trx
+
+# Rider / VS / VS Code
+.idea/
+.vs/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+# Node / Angular
+node_modules/
+dist/
+.angular/
+npm-debug.log*
+yarn-error.log*
+.pnpm-store/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+*.pfx
+*.pem
+appsettings.Local.json
+secrets.json
+
+# Docker / local data
+.data/
+docker/volumes/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Load test output
+loadtests/**/results/
+loadtests/**/*.html
+!loadtests/**/report-template.html
