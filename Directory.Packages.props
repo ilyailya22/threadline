@@ -7,6 +7,7 @@
     <PackageVersion Include="HotChocolate.Types.Analyzers" Version="16.6.6" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.CommandLine" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" />
@@ -15,6 +16,8 @@
     <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.10.0" />
     <!-- Must be >= 2.7.5, the first release patched for GHSA-v5pm-xwqc-g5wc (stack overflow on circular $ref), and >= what Microsoft.AspNetCore.OpenApi binds to. -->
+    <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Options.DataAnnotations" Version="10.0.12" />
     <PackageVersion Include="Microsoft.OpenApi" Version="2.12.0" />
     <PackageVersion Include="Scalar.AspNetCore" Version="2.17.4" />

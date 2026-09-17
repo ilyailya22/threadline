@@ -7,6 +7,8 @@ using Threadline.Comments.Api.Hubs;
 using Threadline.Comments.Api.Middleware;
 using Threadline.Comments.Api.Services;
 using Threadline.Comments.Application;
+using Threadline.Comments.Application.Captcha;
+using Threadline.Comments.Application.Common;
 using Threadline.Comments.Application.Common.Abstractions;
 using Threadline.Comments.Infrastructure;
 using Threadline.Comments.Infrastructure.Messaging.Consumers;
@@ -44,6 +46,18 @@ builder.Services.AddMessaging(
         bus.AddConsumer<CommentBroadcastConsumer>();
         bus.AddConsumer<AttachmentReadyBroadcastConsumer>();
     });
+
+// The CAPTCHA bypass exists so the write load test measures the write path rather than a 400.
+// It is a decorator over the real service, it needs an explicit secret, and it is not registered at
+// all outside development — three independent reasons it cannot become a production back door.
+builder.Services.Configure<LoadTestOptions>(
+    builder.Configuration.GetSection(LoadTestOptions.SectionName));
+
+if (!builder.Environment.IsProduction()
+    && builder.Configuration.GetValue($"{LoadTestOptions.SectionName}:Enabled", false))
+{
+    builder.Services.Decorate<ICaptchaService, LoadTestCaptchaBypass>();
+}
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IClientContext, HttpClientContext>();
