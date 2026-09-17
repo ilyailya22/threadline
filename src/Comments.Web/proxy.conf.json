@@ -1,0 +1,19 @@
+{
+  "//": "Dev-server proxy. With it, `ng serve` talks to the API on the same origin the production nginx container provides, so there is no CORS-only-in-development class of bug.",
+  "/api": {
+    "target": "http://localhost:5080",
+    "secure": false,
+    "changeOrigin": false
+  },
+  "/hubs": {
+    "target": "http://localhost:5080",
+    "secure": false,
+    "ws": true,
+    "changeOrigin": false
+  },
+  "/graphql": {
+    "target": "http://localhost:5080",
+    "secure": false,
+    "changeOrigin": false
+  }
+}

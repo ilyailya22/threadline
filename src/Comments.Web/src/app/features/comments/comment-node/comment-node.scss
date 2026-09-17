@@ -1,0 +1,133 @@
+:host {
+  display: block;
+}
+
+.node {
+  padding: 0.75rem 0 0.25rem;
+  animation: node-in 220ms ease-out;
+}
+
+.node__header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.node__avatar {
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #7b4bd6));
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.node__author {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.node__name {
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+
+  &:hover {
+    color: var(--accent);
+  }
+}
+
+.node__email {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.node__time {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.node__reply {
+  margin-left: auto;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0.15rem 0.35rem;
+  border-radius: 0.3rem;
+
+  &:hover {
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+  }
+}
+
+.node__body {
+  margin: 0.45rem 0 0 2.5rem;
+}
+
+.node__form {
+  margin: 0.75rem 0 0.5rem 2.5rem;
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 0.55rem;
+  background: var(--surface-muted);
+}
+
+app-attachment-view {
+  display: block;
+  margin-left: 2.5rem;
+}
+
+/*
+ * Replies are indented, but the indentation stops growing after a few levels. An unbounded
+ * `margin-left` per level makes a deep thread unreadable on a phone long before it hits the
+ * server's depth cap.
+ */
+.node__replies {
+  margin-left: 1.25rem;
+  padding-left: 0.85rem;
+  border-left: 2px solid var(--border);
+}
+
+.node[data-depth='4'] .node__replies,
+.node[data-depth='5'] .node__replies,
+.node[data-depth='6'] .node__replies {
+  margin-left: 0.5rem;
+  padding-left: 0.6rem;
+}
+
+@media (max-width: 640px) {
+  .node__body,
+  .node__form,
+  app-attachment-view {
+    margin-left: 0;
+  }
+
+  .node__replies {
+    margin-left: 0.4rem;
+    padding-left: 0.6rem;
+  }
+}
+
+@keyframes node-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.25rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .node {
+    animation: none;
+  }
+}

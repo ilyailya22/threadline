@@ -1,0 +1,12 @@
+**/bin
+**/obj
+**/node_modules
+**/dist
+**/.angular
+**/.git
+**/.vs
+**/.idea
+**/TestResults
+.data
+docs
+loadtests/**/results

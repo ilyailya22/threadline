@@ -1,0 +1,28 @@
+<dialog #dialog class="lightbox" (close)="close()" (click)="$event.target === dialog && close()">
+  @let item = lightbox.content();
+
+  @if (item) {
+    <div class="lightbox__panel">
+      <header class="lightbox__header">
+        <h2 class="lightbox__title">{{ item.title }}</h2>
+
+        <div class="lightbox__actions">
+          @if (item.downloadUrl) {
+            <a class="lightbox__download" [href]="item.downloadUrl" download>Скачать</a>
+          }
+          <button type="button" class="lightbox__close" (click)="close()" aria-label="Закрыть">✕</button>
+        </div>
+      </header>
+
+      <div class="lightbox__body">
+        @if (item.kind === 'image') {
+          <img class="lightbox__image" [src]="item.imageUrl" [alt]="item.title" />
+        } @else if (lightbox.loading()) {
+          <p class="lightbox__loading">Загрузка…</p>
+        } @else {
+          <pre class="lightbox__text">{{ item.text }}</pre>
+        }
+      </div>
+    </div>
+  }
+</dialog>

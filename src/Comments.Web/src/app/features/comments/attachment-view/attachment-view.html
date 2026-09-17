@@ -1,0 +1,45 @@
+@let file = attachment();
+
+@switch (file.status) {
+  @case ('Pending') {
+    <!-- The image is downscaled on a worker, so it becomes available a moment after the comment.
+         Saying so is better than showing a broken image or nothing at all. -->
+    <div class="attachment attachment--pending" aria-live="polite">
+      <span class="attachment__spinner" aria-hidden="true"></span>
+      <span class="attachment__label">Файл обрабатывается…</span>
+    </div>
+  }
+  @case ('Failed') {
+    <div class="attachment attachment--failed">
+      <span class="attachment__label">Не удалось обработать файл «{{ file.originalFileName }}»</span>
+    </div>
+  }
+  @default {
+    @if (file.kind === 'Image') {
+      <button
+        type="button"
+        class="attachment attachment--image"
+        (click)="open(file)"
+        [attr.aria-label]="'Открыть изображение ' + file.originalFileName"
+      >
+        <img
+          class="attachment__thumb"
+          [src]="thumbnailUrl(file)"
+          [alt]="file.originalFileName"
+          [width]="file.width ?? 320"
+          [height]="file.height ?? 240"
+          loading="lazy"
+          decoding="async"
+        />
+      </button>
+    } @else {
+      <button type="button" class="attachment attachment--text" (click)="open(file)">
+        <span class="attachment__icon" aria-hidden="true">TXT</span>
+        <span class="attachment__meta">
+          <span class="attachment__name">{{ file.originalFileName }}</span>
+          <span class="attachment__size">{{ formatSize(file.sizeBytes) }}</span>
+        </span>
+      </button>
+    }
+  }
+}
