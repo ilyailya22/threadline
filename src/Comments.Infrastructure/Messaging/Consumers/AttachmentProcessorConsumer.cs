@@ -2,6 +2,7 @@ using Threadline.Comments.Application.Attachments;
 using Threadline.Comments.Application.Common.Abstractions;
 using Threadline.Comments.Domain.Comments;
 using Threadline.Comments.Infrastructure.Messaging.Contracts;
+using MassTransit;
 using Threadline.Comments.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -23,8 +24,7 @@ public sealed partial class AttachmentProcessorConsumer(
     IDateTimeProvider clock,
     IFileStorage storage,
     IImageProcessor images,
-    ICommentNotifier notifier,
-    IAttachmentUrlBuilder urls,
+    IPublishEndpoint publisher,
     ILogger<AttachmentProcessorConsumer> logger)
     : IdempotentConsumer<CommentCreatedIntegrationEvent>(context, clock, logger)
 {
@@ -58,9 +58,15 @@ public sealed partial class AttachmentProcessorConsumer(
                     attachment.MarkTextProcessed(Clock.UtcNow);
                 }
 
-                await notifier.AttachmentReadyAsync(
-                    message.CommentId,
-                    urls.ToDto(attachment),
+                // The worker announces that the file is ready; the API, which owns the SignalR hub
+                // connections, is what turns that into a push to the browser. Keeping the two apart
+                // is why the worker can be scaled, restarted or moved without touching the web tier.
+                await publisher.Publish(
+                    new AttachmentReadyIntegrationEvent
+                    {
+                        CommentId = message.CommentId,
+                        AttachmentId = attachment.Id,
+                    },
                     cancellationToken);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)

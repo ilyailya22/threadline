@@ -1,7 +1,34 @@
+using Threadline.Comments.Application;
+using Threadline.Comments.Infrastructure;
+using Threadline.Comments.Infrastructure.Messaging.Consumers;
 using Threadline.Comments.Worker;
+using Serilog;
 
 var builder = Host.CreateApplicationBuilder(args);
-builder.Services.AddHostedService<Worker>();
+
+builder.Services.AddSerilog((services, configuration) => configuration
+    .ReadFrom.Configuration(builder.Configuration)
+    .ReadFrom.Services(services)
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("Application", "threadline-comments-worker"));
+
+builder.Services.AddApplication();
+builder.Services.AddInfrastructure(builder.Configuration);
+
+// Everything the request path refuses to do lives here: draining the outbox onto the broker,
+// keeping Elasticsearch in step, and turning uploads into 320x240 images. Scaling this deployment
+// scales throughput without touching the web tier.
+builder.Services.AddOutboxPublisher();
+
+builder.Services.AddMessaging(builder.Configuration, bus =>
+{
+    bus.AddConsumer<CommentIndexerConsumer>();
+    bus.AddConsumer<AttachmentProcessorConsumer>();
+});
+
+builder.Services.AddWorkerTelemetry(builder.Configuration);
+builder.Services.AddHostedService<SearchIndexInitializer>();
 
 var host = builder.Build();
-host.Run();
+
+await host.RunAsync();
