@@ -20,13 +20,24 @@
     <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
     <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" />
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
-    <PackageReference Include="SixLabors.ImageSharp" />
-    <PackageReference Include="SixLabors.ImageSharp.Drawing" />
+    <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" />
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" />
     <PackageReference Include="StackExchange.Redis" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Comments.Application\Comments.Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Label="CAPTCHA font">
+    <!--
+      Embedded, not loaded from the OS: the aspnet container image ships without fonts, so a
+      SystemFonts lookup would work on a dev machine and fail in production.
+      Roboto Mono, SIL Open Font License 1.1 — see Captcha/Fonts/OFL.txt.
+    -->
+    <EmbeddedResource Include="Captcha\Fonts\RobotoMono.ttf" />
+    <None Include="Captcha\Fonts\OFL.txt" Pack="true" />
   </ItemGroup>
 
 </Project>

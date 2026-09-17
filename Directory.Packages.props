@@ -1,10 +1,8 @@
 <Project>
-
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
-
   <ItemGroup Label="ASP.NET Core / framework">
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" Version="10.0.12" />
@@ -16,54 +14,46 @@
     <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.10.0" />
     <!-- 2.7.5 is the first release patched for GHSA-v5pm-xwqc-g5wc (stack overflow on circular $ref). -->
+    <PackageVersion Include="Microsoft.Extensions.Options.DataAnnotations" Version="10.0.12" />
     <PackageVersion Include="Microsoft.OpenApi" Version="2.7.5" />
     <PackageVersion Include="Scalar.AspNetCore" Version="2.17.4" />
+    <PackageVersion Include="SkiaSharp" Version="4.152.0" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="4.152.0" />
   </ItemGroup>
-
   <ItemGroup Label="Persistence">
     <PackageVersion Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.12" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12" />
   </ItemGroup>
-
   <ItemGroup Label="Cache">
     <PackageVersion Include="Microsoft.Extensions.Caching.Abstractions" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Caching.Hybrid" Version="10.10.0" />
     <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.12" />
     <PackageVersion Include="StackExchange.Redis" Version="3.2.15" />
   </ItemGroup>
-
   <ItemGroup Label="Search (NoSQL)">
     <PackageVersion Include="Elastic.Clients.Elasticsearch" Version="9.5.2" />
   </ItemGroup>
-
   <ItemGroup Label="Messaging">
     <PackageVersion Include="MassTransit" Version="9.2.2" />
     <PackageVersion Include="MassTransit.RabbitMQ" Version="9.2.2" />
   </ItemGroup>
-
   <ItemGroup Label="GraphQL">
     <PackageVersion Include="HotChocolate.AspNetCore" Version="16.6.6" />
     <PackageVersion Include="HotChocolate.Data" Version="16.6.6" />
   </ItemGroup>
-
   <ItemGroup Label="Application">
     <!-- MediatR 12.x is the last Apache-2.0 release; 13.x moved to a commercial licence. -->
     <PackageVersion Include="MediatR" Version="12.5.0" />
     <PackageVersion Include="FluentValidation" Version="12.1.1" />
     <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
   </ItemGroup>
-
   <ItemGroup Label="Media / files">
-    <PackageVersion Include="SixLabors.ImageSharp" Version="4.1.2" />
-    <PackageVersion Include="SixLabors.ImageSharp.Drawing" Version="3.1.2" />
   </ItemGroup>
-
   <ItemGroup Label="Azure">
     <PackageVersion Include="Azure.Storage.Blobs" Version="12.29.2" />
     <PackageVersion Include="Azure.Identity" Version="1.21.0" />
     <PackageVersion Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.6.0" />
   </ItemGroup>
-
   <ItemGroup Label="Observability">
     <PackageVersion Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageVersion Include="Serilog.Sinks.Console" Version="6.1.1" />
@@ -79,12 +69,10 @@
     <PackageVersion Include="AspNetCore.HealthChecks.Elasticsearch" Version="9.0.0" />
     <PackageVersion Include="AspNetCore.HealthChecks.UI.Client" Version="9.0.0" />
   </ItemGroup>
-
   <ItemGroup Label="Tooling">
     <PackageVersion Include="Bogus" Version="35.6.5" />
     <PackageVersion Include="Spectre.Console" Version="0.57.2" />
   </ItemGroup>
-
   <ItemGroup Label="Testing">
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />
@@ -102,5 +90,4 @@
     <PackageVersion Include="NBomber" Version="6.6.0" />
     <PackageVersion Include="NBomber.Http" Version="6.2.1" />
   </ItemGroup>
-
 </Project>
