@@ -1,4 +1,4 @@
-namespace Comments.Worker;
+namespace Threadline.Comments.Worker;
 
 public class Worker(ILogger<Worker> logger) : BackgroundService
 {

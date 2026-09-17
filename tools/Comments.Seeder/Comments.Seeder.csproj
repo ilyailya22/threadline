@@ -14,4 +14,8 @@
     <PackageReference Include="Spectre.Console" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Comments.Infrastructure\Comments.Infrastructure.csproj" />
+  </ItemGroup>
+
 </Project>

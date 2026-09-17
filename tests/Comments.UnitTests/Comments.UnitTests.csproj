@@ -21,4 +21,8 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Comments.Application\Comments.Application.csproj" />
+  </ItemGroup>
+
 </Project>

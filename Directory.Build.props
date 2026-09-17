@@ -14,6 +14,14 @@
     <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
     <InvariantGlobalization>true</InvariantGlobalization>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+
+    <!--
+      Every assembly is prefixed with a vendor segment. Without it, a feature folder named
+      "Comments" inside a project named "Comments.*" produces a nested namespace that shadows the
+      root one, and `using Comments.Application...` silently resolves to the wrong thing.
+    -->
+    <RootNamespace>Threadline.$(MSBuildProjectName)</RootNamespace>
+    <AssemblyName>Threadline.$(MSBuildProjectName)</AssemblyName>
   </PropertyGroup>
 
   <PropertyGroup Label="Metadata">

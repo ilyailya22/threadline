@@ -1,4 +1,4 @@
-using Comments.Worker;
+using Threadline.Comments.Worker;
 
 var builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddHostedService<Worker>();
