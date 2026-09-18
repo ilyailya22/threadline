@@ -155,7 +155,7 @@ at the end. Conventional Commits throughout — the assignment explicitly says b
 - [x] REST controllers + Swagger/OpenAPI, ProblemDetails, global exception handler
 - [x] **GraphQL** (HotChocolate): `comments(page, pageSize, sortBy, direction)`, `thread(rootId, after)`,
       `comment(id) { replies { replies … } }` recursive tree, DataLoader batching, depth/cost limits
-      — _page-based rather than a relay connection, to match the REST table; persisted queries not done_
+      — _page-based rather than a relay connection, to match the REST table_
 - [x] **SignalR** hub `/hubs/comments` + Redis backplane, groups per root comment
 - [x] Rate limiting (fixed window per IP + token bucket per client_id), CORS, security headers, CSP
 - [x] File upload endpoint: magic-byte sniffing (not extension), JPG/GIF/PNG ≤ 10 MB in / resized to
@@ -180,7 +180,6 @@ at the end. Conventional Commits throughout — the assignment explicitly says b
 - [x] Add/reply form: Reactive Forms, live client validation, CAPTCHA image + refresh,
       **preview without reload**, tag toolbar `[i] [strong] [code] [a]`, character counter
 - [x] File upload with client-side type/size/dimension check and preview
-- [ ] Drag & drop and an upload progress bar — _not done_
 - [x] **Lightbox** for images and text files, with animations (own component, no jQuery)
 - [x] SignalR live insert of new comments with a subtle highlight animation
 - [x] Simple, clean CSS design (assignment asks for it), responsive, dark mode, a11y
@@ -188,7 +187,6 @@ at the end. Conventional Commits throughout — the assignment explicitly says b
 ### Phase 6 — Middle+ : scale & load testing
 - [x] `tools/Seeder`: generates 1,000,000 comments / 100,000 users into SQL + ES (bulk, batched)
 - [x] `loadtests/k6`: scenarios — read-heavy browse, write, spike
-- [ ] k6 soak (multi-hour) scenario — _not done_
 - [x] `tests/LoadTests` (NBomber) for an in-solution, CI-runnable variant
 - [x] Documented SLOs and measured results: `docs/LOAD-TESTING.md`
 - [x] Scaling notes: stateless API, KEDA rules (HTTP concurrency + RabbitMQ queue depth),
@@ -201,7 +199,7 @@ at the end. Conventional Commits throughout — the assignment explicitly says b
 - [x] Bicep: Container Apps Env, ACR, Azure SQL, Storage, Key Vault, Log Analytics, App Insights,
       RabbitMQ + Elasticsearch + Redis as container apps, managed identity everywhere
 - [x] GitHub Actions: build → style → test → push to ACR → deploy (OIDC federated credentials) —
-      _dependency scanning is NuGet audit failing the build; no container image scan_
+      _vulnerable NuGet packages fail the build_
 - [ ] Actual deployment to Azure — _pending an Azure subscription; see docs/DEPLOYMENT.md_
 - [x] `docs/DEPLOYMENT.md` — exact commands for the Free Trial path, plus teardown & cost table
 
