@@ -37,22 +37,13 @@ public sealed class UserNameTests
     }
 
     [Fact]
-    public void Rejects_a_name_over_the_length_limit()
-    {
-        Should.Throw<DomainException>(() => UserName.Create(new string('a', UserName.MaxLength + 1)));
-    }
+    public void Rejects_a_name_over_the_length_limit() => Should.Throw<DomainException>(() => UserName.Create(new string('a', UserName.MaxLength + 1)));
 
     [Fact]
-    public void Is_compared_case_insensitively_so_one_person_is_one_user()
-    {
-        UserName.Create("Anonym").ShouldBe(UserName.Create("anonym"));
-    }
+    public void Is_compared_case_insensitively_so_one_person_is_one_user() => UserName.Create("Anonym").ShouldBe(UserName.Create("anonym"));
 
     [Fact]
-    public void Surrounding_whitespace_is_trimmed_rather_than_rejected()
-    {
-        UserName.Create("  Anonym  ").Value.ShouldBe("Anonym");
-    }
+    public void Surrounding_whitespace_is_trimmed_rather_than_rejected() => UserName.Create("  Anonym  ").Value.ShouldBe("Anonym");
 }
 
 public sealed class EmailAddressTests
@@ -62,10 +53,7 @@ public sealed class EmailAddressTests
     [InlineData("first.last@sub.example.co.uk")]
     [InlineData("user+tag@example.io")]
     [InlineData("u@e.dev")]
-    public void Accepts_valid_addresses(string value)
-    {
-        EmailAddress.Create(value).Value.ShouldBe(value);
-    }
+    public void Accepts_valid_addresses(string value) => EmailAddress.Create(value).Value.ShouldBe(value);
 
     [Theory]
     [InlineData("")]
@@ -76,10 +64,7 @@ public sealed class EmailAddressTests
     [InlineData("user@.com")]
     [InlineData("user name@example.com")]
     [InlineData("user@exam ple.com")]
-    public void Rejects_invalid_addresses(string value)
-    {
-        EmailAddress.IsValid(value).ShouldBeFalse();
-    }
+    public void Rejects_invalid_addresses(string value) => EmailAddress.IsValid(value).ShouldBeFalse();
 
     [Fact]
     public void Rejects_an_address_over_the_rfc_length_limit()
@@ -106,10 +91,7 @@ public sealed class EmailAddressTests
     }
 
     [Fact]
-    public void Exposes_its_domain()
-    {
-        EmailAddress.Create("user@example.com").Domain.ShouldBe("example.com");
-    }
+    public void Exposes_its_domain() => EmailAddress.Create("user@example.com").Domain.ShouldBe("example.com");
 }
 
 public sealed class HomePageUrlTests
@@ -127,10 +109,7 @@ public sealed class HomePageUrlTests
     [Theory]
     [InlineData("https://example.com")]
     [InlineData("http://example.com/path?query=1")]
-    public void Accepts_absolute_http_urls(string value)
-    {
-        HomePageUrl.CreateOrNull(value).ShouldNotBeNull();
-    }
+    public void Accepts_absolute_http_urls(string value) => HomePageUrl.CreateOrNull(value).ShouldNotBeNull();
 
     /// <summary>
     /// The scheme allowlist is a security control, not a formatting preference: a stored

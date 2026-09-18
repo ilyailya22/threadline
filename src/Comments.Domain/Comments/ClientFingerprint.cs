@@ -38,9 +38,7 @@ public sealed class ClientFingerprint : ValueObject
             throw new DomainException("Client IP hash is missing or malformed.");
         }
 
-        var trimmedAgent = userAgent is null
-            ? null
-            : userAgent[..Math.Min(userAgent.Length, MaxUserAgentLength)];
+        var trimmedAgent = userAgent?[..Math.Min(userAgent.Length, MaxUserAgentLength)];
 
         return new ClientFingerprint(ipHash, trimmedAgent, clientId);
     }

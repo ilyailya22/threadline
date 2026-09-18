@@ -128,7 +128,7 @@ public sealed class Comment : Entity
             comment.Attach(attachment);
         }
 
-        author.RecordActivity(author.HomePage, createdAt);
+        author.RecordPost(createdAt);
 
         comment.Raise(new CommentCreatedDomainEvent(
             comment.Id,

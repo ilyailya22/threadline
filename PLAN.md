@@ -143,7 +143,7 @@ at the end. Conventional Commits throughout — the assignment explicitly says b
 - [ ] MediatR pipeline: validation → logging → transaction → idempotency
 - [ ] `CreateCommentCommand`, `GetTopLevelCommentsQuery`, `GetCommentThreadQuery`,
       `PreviewCommentQuery`, `IssueCaptchaQuery`
-- [ ] FluentValidation rules mirrored 1:1 in Angular validators (single source: `docs/VALIDATION.md`)
+- [ ] FluentValidation rules mirrored 1:1 in Angular validators (single source: the `/api/validation-rules` endpoint)
 - [ ] **HTML sanitizer**: strict allowlist `<a href title> <code> <i> <strong>`, everything else
       escaped; XHTML well-formedness enforced by parsing the result as XML — invalid/unclosed tags
       are rejected with a field-level error, not silently fixed

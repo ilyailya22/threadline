@@ -46,7 +46,7 @@ public sealed partial class GetTopLevelCommentsQueryHandler(
         if (page.Skip + page.PageSize > Paging.MaxOffset)
         {
             throw new InputValidationException(
-                "page",
+                nameof(page),
                 $"Cannot page beyond {Paging.MaxOffset} items. Narrow the result set instead.");
         }
 
@@ -59,21 +59,10 @@ public sealed partial class GetTopLevelCommentsQueryHandler(
             return await QueryAsync(page, searchText, cancellationToken);
         }
 
-        var cached = await cache.GetOrCreateTopLevelAsync(
+        return await cache.GetOrCreateTopLevelAsync(
             page.ToCacheKey(),
-            async token =>
-            {
-                var fresh = await QueryAsync(page, searchText: null, token);
-
-                return new PagedCacheEntry(fresh.Items, fresh.Page, fresh.PageSize, fresh.TotalCount);
-            },
+            async token => await QueryAsync(page, searchText: null, token),
             cancellationToken);
-
-        return new PagedResult<CommentListItemDto>(
-            cached.Items,
-            cached.Page,
-            cached.PageSize,
-            cached.TotalCount);
     }
 
     private async Task<PagedResult<CommentListItemDto>> QueryAsync(

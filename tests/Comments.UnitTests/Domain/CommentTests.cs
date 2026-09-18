@@ -189,8 +189,5 @@ public sealed class AttachmentTests
     }
 
     [Fact]
-    public void A_file_name_that_is_only_a_path_is_refused()
-    {
-        Should.Throw<DomainException>(() => Attachment.CreateTextFile("../", 128, "originals/x.txt", Now));
-    }
+    public void A_file_name_that_is_only_a_path_is_refused() => Should.Throw<DomainException>(() => Attachment.CreateTextFile("../", 128, "originals/x.txt", Now));
 }

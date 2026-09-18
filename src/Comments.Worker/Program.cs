@@ -1,6 +1,6 @@
 using Threadline.Comments.Infrastructure;
-using Threadline.Comments.Infrastructure.Messaging.Consumers;
-using Threadline.Comments.Worker;
+using Threadline.Comments.Infrastructure.Messaging;
+using Threadline.Comments.Infrastructure.Observability;
 using Serilog;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -15,22 +15,14 @@ builder.Services.AddSerilog((services, configuration) => configuration
 // here pulled in dependencies only the web tier provides (IClientContext), which the Development
 // host rejects at start-up when it validates the container.
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddInfrastructureInitializer(applyMigrations: false);
 
 // Everything the request path refuses to do lives here: draining the outbox onto the broker,
 // keeping Elasticsearch in step, and turning uploads into 320x240 images. Scaling this deployment
 // scales throughput without touching the web tier.
 builder.Services.AddOutboxPublisher();
+builder.Services.AddMessaging(builder.Configuration, bus => bus.AddBackgroundConsumers());
 
-builder.Services.AddMessaging(builder.Configuration, bus =>
-{
-    bus.AddCommentIndexer();
-    bus.AddConsumer<AttachmentProcessorConsumer>();
-    bus.AddConsumer<AttachmentIndexRefreshConsumer>();
-});
+builder.Services.AddCommentsTelemetry(builder.Configuration, "threadline-comments-worker");
 
-builder.Services.AddWorkerTelemetry(builder.Configuration);
-builder.Services.AddHostedService<SearchIndexInitializer>();
-
-var host = builder.Build();
-
-await host.RunAsync();
+await builder.Build().RunAsync();

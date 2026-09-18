@@ -13,7 +13,6 @@ function node(id: string, parentId: string | null, createdAt: string, depth = 1)
     textHtml: id,
     createdAt,
     attachments: [],
-    replies: [],
   };
 }
 

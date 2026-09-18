@@ -2,8 +2,10 @@ using System.Text.Json;
 using Threadline.Comments.Application.Comments.Dtos;
 using Threadline.Comments.Application.Common.Abstractions;
 using Threadline.Comments.Application.Common.Models;
+using Threadline.Comments.Domain.Comments;
 using Elastic.Clients.Elasticsearch;
 using Elastic.Transport;
+using HttpMethod = Elastic.Transport.HttpMethod;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -38,7 +40,7 @@ public sealed partial class ElasticsearchCommentIndex(
     public async Task EnsureCreatedAsync(CancellationToken cancellationToken = default)
     {
         var exists = await client.Transport.RequestAsync<StringResponse>(
-            Elastic.Transport.HttpMethod.HEAD,
+            HttpMethod.HEAD,
             $"/{_options.IndexName}",
             cancellationToken: cancellationToken);
 
@@ -51,7 +53,7 @@ public sealed partial class ElasticsearchCommentIndex(
         var body = PostData.String(BuildIndexDefinition(_options));
 
         var created = await client.Transport.RequestAsync<StringResponse>(
-            Elastic.Transport.HttpMethod.PUT,
+            HttpMethod.PUT,
             $"/{_options.IndexName}",
             body,
             cancellationToken: cancellationToken);
@@ -110,7 +112,7 @@ public sealed partial class ElasticsearchCommentIndex(
             Json);
 
         var response = await client.Transport.RequestAsync<StringResponse>(
-            Elastic.Transport.HttpMethod.POST,
+            HttpMethod.POST,
             $"/{_options.Alias}/_search",
             PostData.String(body),
             cancellationToken: cancellationToken);
@@ -121,13 +123,6 @@ public sealed partial class ElasticsearchCommentIndex(
         }
 
         return Parse(response.Body!, page);
-    }
-
-    public Task IndexAsync(CommentSearchDocument document, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(document);
-
-        return IndexManyAsync([document], cancellationToken);
     }
 
     /// <summary>
@@ -182,7 +177,7 @@ public sealed partial class ElasticsearchCommentIndex(
         }
 
         var response = await client.Transport.RequestAsync<StringResponse>(
-            Elastic.Transport.HttpMethod.POST,
+            HttpMethod.POST,
             $"/{_options.Alias}/_bulk?refresh=wait_for",
             PostData.String(ndjson.ToString()),
             cancellationToken: cancellationToken);
@@ -217,23 +212,6 @@ public sealed partial class ElasticsearchCommentIndex(
             {
                 throw new InvalidOperationException($"Elasticsearch bulk index failed: {error}");
             }
-        }
-    }
-
-    public async Task<bool> IsAvailableAsync(CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            var response = await client.Transport.RequestAsync<StringResponse>(
-                Elastic.Transport.HttpMethod.GET,
-                "/_cluster/health",
-                cancellationToken: cancellationToken);
-
-            return response.ApiCallDetails.HttpStatusCode == 200;
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            return false;
         }
     }
 
@@ -289,7 +267,7 @@ public sealed partial class ElasticsearchCommentIndex(
                 source.Id,
                 new AuthorDto(source.AuthorId, source.UserName, source.Email, source.HomePage),
                 source.TextHtml,
-                source.TextPlain.Length <= 200 ? source.TextPlain : source.TextPlain[..200] + "…",
+                CommentBody.ToPreview(source.TextPlain),
                 source.CreatedAt,
                 source.ReplyCount,
                 source.LastReplyAt,

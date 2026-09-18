@@ -15,7 +15,7 @@ public sealed partial class LoggingBehavior<TRequest, TResponse>(
     where TRequest : notnull
 {
     /// <summary>Anything slower than this is worth a look; see docs/LOAD-TESTING.md for the SLOs.</summary>
-    private static readonly long SlowRequestMs = 500;
+    private const long SlowRequestMs = 500;
 
     public async Task<TResponse> Handle(
         TRequest request,

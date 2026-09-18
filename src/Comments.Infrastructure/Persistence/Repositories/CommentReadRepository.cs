@@ -7,8 +7,8 @@ using Microsoft.EntityFrameworkCore;
 namespace Threadline.Comments.Infrastructure.Persistence.Repositories;
 
 /// <summary>
-/// SQL read model. Every query here is <c>AsNoTracking</c> and projects straight into DTOs, so the
-/// change tracker never sees a read.
+/// SQL read model. Queries run untracked (the context default) and project straight into DTOs, so
+/// the change tracker never sees a read.
 /// </summary>
 /// <remarks>
 /// This type answers two different needs. Thread retrieval is its <em>primary</em> job and is fast
@@ -17,7 +17,7 @@ namespace Threadline.Comments.Infrastructure.Persistence.Repositories;
 /// the author's e-mail means a join and a sort that the search index does for free, and that cost
 /// is accepted deliberately as the price of staying up rather than returning an error.
 /// </remarks>
-public sealed class CommentReadRepository(AppDbContext context, IAttachmentUrlBuilder urls)
+public sealed class CommentReadRepository(AppDbContext context, IAttachmentDtoMapper attachmentMapper)
     : ICommentReadRepository
 {
     public async Task<PagedResult<CommentListItemDto>> GetTopLevelAsync(
@@ -28,19 +28,19 @@ public sealed class CommentReadRepository(AppDbContext context, IAttachmentUrlBu
 
         var page = request.Normalized();
 
-        var query = context.Comments.AsNoTracking().Where(c => c.ParentId == null);
+        var topLevel = context.Comments.Where(c => c.ParentId == null);
 
-        var total = await query.LongCountAsync(cancellationToken);
+        var total = await topLevel.LongCountAsync(cancellationToken);
 
         if (total == 0)
         {
             return new PagedResult<CommentListItemDto>([], page.Page, page.PageSize, 0);
         }
 
-        var rows = await ApplySort(query, page)
+        var rows = await ApplySort(topLevel, page)
             .Skip(page.Skip)
             .Take(page.PageSize)
-            .Select(c => new Row(
+            .Select(c => new ListItemRow(
                 c.Id,
                 c.AuthorId,
                 c.Author.UserName.Value,
@@ -54,7 +54,6 @@ public sealed class CommentReadRepository(AppDbContext context, IAttachmentUrlBu
         var ids = rows.ConvertAll(r => r.Id);
 
         var replyStats = await context.Comments
-            .AsNoTracking()
             .Where(c => ids.Contains(c.RootId) && c.ParentId != null)
             .GroupBy(c => c.RootId)
             .Select(g => new { RootId = g.Key, Count = g.Count(), Last = g.Max(c => c.CreatedAt) })
@@ -70,11 +69,11 @@ public sealed class CommentReadRepository(AppDbContext context, IAttachmentUrlBu
                 r.Id,
                 new AuthorDto(r.AuthorId, r.UserName, r.Email, r.HomePage),
                 r.TextHtml,
-                Preview(r.TextPlain),
+                CommentBody.ToPreview(r.TextPlain),
                 r.CreatedAt,
-                stats.Item1,
-                stats.Item1 == 0 ? null : stats.Item2,
-                attachments.TryGetValue(r.Id, out var files) ? files : []);
+                stats.Count,
+                stats.Count == 0 ? null : stats.Last,
+                AttachmentsOf(r.Id, attachments));
         });
 
         return new PagedResult<CommentListItemDto>(items, page.Page, page.PageSize, total);
@@ -87,9 +86,7 @@ public sealed class CommentReadRepository(AppDbContext context, IAttachmentUrlBu
         string? afterPath,
         CancellationToken cancellationToken = default)
     {
-        var thread = context.Comments
-            .AsNoTracking()
-            .Where(c => c.RootId == rootId && c.Depth <= maxDepth);
+        var thread = context.Comments.Where(c => c.RootId == rootId && c.Depth <= maxDepth);
 
         // Keyset on the materialised path: "everything after the last node you saw", served by the
         // same (RootId, Path) index range scan as the first page. Offset paging would make page 100
@@ -106,25 +103,10 @@ public sealed class CommentReadRepository(AppDbContext context, IAttachmentUrlBu
                     $"""
                      SELECT * FROM [Comments]
                      WHERE [RootId] = {rootId} AND [Depth] <= {maxDepth} AND [Path] > {afterPath}
-                     """)
-                .AsNoTracking();
+                     """);
 
         // One row more than asked for tells us whether there is a next page without a second query.
-        var rows = await page
-            .OrderBy(c => c.Path)
-            .Take(limit + 1)
-            .Select(c => new NodeRow(
-                c.Id,
-                c.ParentId,
-                c.RootId,
-                c.Depth,
-                c.AuthorId,
-                c.Author.UserName.Value,
-                c.Author.Email.Value,
-                c.Author.HomePage == null ? null : c.Author.HomePage.Value,
-                c.Body.Html,
-                c.CreatedAt,
-                c.Path.Value))
+        var rows = await ProjectToNodeRows(page.OrderBy(c => c.Path).Take(limit + 1))
             .ToListAsync(cancellationToken);
 
         if (rows.Count == 0 && afterPath is null)
@@ -140,22 +122,9 @@ public sealed class CommentReadRepository(AppDbContext context, IAttachmentUrlBu
         }
 
         var total = await thread.CountAsync(cancellationToken);
-        var attachments = await LoadAttachmentsAsync(rows.ConvertAll(r => r.Id), cancellationToken);
+        var nodes = await ToNodesAsync(rows, cancellationToken);
 
-        return new CommentThreadDto(
-            rootId,
-            total,
-            rows.ConvertAll(r => ToNode(r, attachments)),
-            hasMore ? rows[^1].Path : null);
-    }
-
-    public async Task<IReadOnlyList<CommentNodeDto>> GetRepliesAsync(
-        Guid parentId,
-        CancellationToken cancellationToken = default)
-    {
-        var byParent = await GetRepliesByParentIdsAsync([parentId], cancellationToken);
-
-        return byParent.TryGetValue(parentId, out var replies) ? replies : [];
+        return new CommentThreadDto(rootId, total, nodes, hasMore ? rows[^1].Path : null);
     }
 
     /// <summary>
@@ -174,58 +143,27 @@ public sealed class CommentReadRepository(AppDbContext context, IAttachmentUrlBu
             return new Dictionary<Guid, IReadOnlyList<CommentNodeDto>>();
         }
 
-        var rows = await context.Comments
-            .AsNoTracking()
+        var replies = context.Comments
             .Where(c => c.ParentId != null && parentIds.Contains(c.ParentId.Value))
-            .OrderBy(c => c.Path)
-            .Select(c => new NodeRow(
-                c.Id,
-                c.ParentId,
-                c.RootId,
-                c.Depth,
-                c.AuthorId,
-                c.Author.UserName.Value,
-                c.Author.Email.Value,
-                c.Author.HomePage == null ? null : c.Author.HomePage.Value,
-                c.Body.Html,
-                c.CreatedAt))
-            .ToListAsync(cancellationToken);
+            .OrderBy(c => c.Path);
 
-        var attachments = await LoadAttachmentsAsync(rows.ConvertAll(r => r.Id), cancellationToken);
+        var nodes = await ToNodesAsync(
+            await ProjectToNodeRows(replies).ToListAsync(cancellationToken),
+            cancellationToken);
 
-        return rows
-            .GroupBy(r => r.ParentId!.Value)
-            .ToDictionary(
-                g => g.Key,
-                IReadOnlyList<CommentNodeDto> (g) => [.. g.Select(r => ToNode(r, attachments))]);
+        return nodes
+            .GroupBy(n => n.ParentId!.Value)
+            .ToDictionary(g => g.Key, IReadOnlyList<CommentNodeDto> (g) => [.. g]);
     }
 
     public async Task<CommentNodeDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var row = await context.Comments
-            .AsNoTracking()
-            .Where(c => c.Id == id)
-            .Select(c => new NodeRow(
-                c.Id,
-                c.ParentId,
-                c.RootId,
-                c.Depth,
-                c.AuthorId,
-                c.Author.UserName.Value,
-                c.Author.Email.Value,
-                c.Author.HomePage == null ? null : c.Author.HomePage.Value,
-                c.Body.Html,
-                c.CreatedAt))
-            .FirstOrDefaultAsync(cancellationToken);
+        var rows = await ProjectToNodeRows(context.Comments.Where(c => c.Id == id))
+            .ToListAsync(cancellationToken);
 
-        if (row is null)
-        {
-            return null;
-        }
+        var nodes = await ToNodesAsync(rows, cancellationToken);
 
-        var attachments = await LoadAttachmentsAsync([id], cancellationToken);
-
-        return ToNode(row, attachments);
+        return nodes.Count == 0 ? null : nodes[0];
     }
 
     /// <summary>
@@ -251,6 +189,36 @@ public sealed class CommentReadRepository(AppDbContext context, IAttachmentUrlBu
             _ => query.OrderByDescending(c => c.CreatedAt).ThenByDescending(c => c.Id),
         };
 
+    /// <summary>The one projection every node-shaped read goes through, so they cannot drift apart.</summary>
+    private static IQueryable<NodeRow> ProjectToNodeRows(IQueryable<Comment> comments) =>
+        comments.Select(c => new NodeRow(
+            c.Id,
+            c.ParentId,
+            c.RootId,
+            c.Depth,
+            c.AuthorId,
+            c.Author.UserName.Value,
+            c.Author.Email.Value,
+            c.Author.HomePage == null ? null : c.Author.HomePage.Value,
+            c.Body.Html,
+            c.CreatedAt,
+            c.Path.Value));
+
+    private async Task<List<CommentNodeDto>> ToNodesAsync(List<NodeRow> rows, CancellationToken cancellationToken)
+    {
+        var attachments = await LoadAttachmentsAsync(rows.ConvertAll(r => r.Id), cancellationToken);
+
+        return rows.ConvertAll(row => new CommentNodeDto(
+            row.Id,
+            row.ParentId,
+            row.RootId,
+            row.Depth,
+            new AuthorDto(row.AuthorId, row.UserName, row.Email, row.HomePage),
+            row.TextHtml,
+            row.CreatedAt,
+            AttachmentsOf(row.Id, attachments)));
+    }
+
     private async Task<Dictionary<Guid, IReadOnlyList<AttachmentDto>>> LoadAttachmentsAsync(
         List<Guid> commentIds,
         CancellationToken cancellationToken)
@@ -261,7 +229,6 @@ public sealed class CommentReadRepository(AppDbContext context, IAttachmentUrlBu
         }
 
         var attachments = await context.Attachments
-            .AsNoTracking()
             .Where(a => commentIds.Contains(a.CommentId))
             .ToListAsync(cancellationToken);
 
@@ -269,26 +236,15 @@ public sealed class CommentReadRepository(AppDbContext context, IAttachmentUrlBu
             .GroupBy(a => a.CommentId)
             .ToDictionary(
                 g => g.Key,
-                IReadOnlyList<AttachmentDto> (g) => [.. g.Select(urls.ToDto)]);
+                IReadOnlyList<AttachmentDto> (g) => [.. g.Select(attachmentMapper.ToDto)]);
     }
 
-    private static CommentNodeDto ToNode(
-        NodeRow row,
+    private static IReadOnlyList<AttachmentDto> AttachmentsOf(
+        Guid commentId,
         Dictionary<Guid, IReadOnlyList<AttachmentDto>> attachments) =>
-        new(
-            row.Id,
-            row.ParentId,
-            row.RootId,
-            row.Depth,
-            new AuthorDto(row.AuthorId, row.UserName, row.Email, row.HomePage),
-            row.TextHtml,
-            row.CreatedAt,
-            attachments.TryGetValue(row.Id, out var files) ? files : []);
+        attachments.TryGetValue(commentId, out var files) ? files : [];
 
-    private static string Preview(string plainText) =>
-        plainText.Length <= 200 ? plainText : plainText[..200] + "…";
-
-    private sealed record Row(
+    private sealed record ListItemRow(
         Guid Id,
         Guid AuthorId,
         string UserName,
@@ -309,5 +265,5 @@ public sealed class CommentReadRepository(AppDbContext context, IAttachmentUrlBu
         string? HomePage,
         string TextHtml,
         DateTimeOffset CreatedAt,
-        string Path = "");
+        string Path);
 }

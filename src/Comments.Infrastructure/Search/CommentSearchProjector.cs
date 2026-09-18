@@ -16,7 +16,7 @@ namespace Threadline.Comments.Infrastructure.Search;
 public sealed class CommentSearchProjector(
     AppDbContext context,
     ICommentSearchIndex searchIndex,
-    IAttachmentUrlBuilder urls)
+    IAttachmentDtoMapper attachmentMapper)
 {
     /// <summary>Re-projects one thread root. Does nothing if the comment is missing or is a reply.</summary>
     public async Task ProjectAsync(Guid rootId, CancellationToken cancellationToken = default)
@@ -51,7 +51,7 @@ public sealed class CommentSearchProjector(
                 UserName = c.Author.UserName.Value,
                 Email = c.Author.Email.Value,
                 HomePage = c.Author.HomePage == null ? null : c.Author.HomePage.Value,
-                Html = c.Body.Html,
+                c.Body.Html,
                 Plain = c.Body.PlainText,
                 c.CreatedAt,
             })
@@ -96,7 +96,7 @@ public sealed class CommentSearchProjector(
                 CreatedAt = root.CreatedAt,
                 ReplyCount = stats?.Count ?? 0,
                 LastReplyAt = stats?.Last,
-                Attachments = [.. attachments[root.Id].Select(urls.ToDto)],
+                Attachments = [.. attachments[root.Id].Select(attachmentMapper.ToDto)],
             };
         });
     }
