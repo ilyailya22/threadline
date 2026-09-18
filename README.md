@@ -130,7 +130,7 @@ never touches SQL for a list query.
 - **Async** — the outbox publisher moves committed events to RabbitMQ; idempotent consumers index
   into Elasticsearch, downscale images and push live updates.
 - **Read** — the sortable table is served from Elasticsearch, fronted by Redis. SQL only serves a
-  single thread's subtree, and that is one indexed range scan thanks to a materialised path.
+  single thread, one page at a time, as an indexed range scan on a materialised path.
 
 The reasoning behind each of those choices — and the ones that were rejected — is in
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
@@ -232,7 +232,7 @@ See [docs/TESTING.md](docs/TESTING.md).
 The Middle+ requirement. The system is benchmarked against a seeded million-comment database.
 
 ```bash
-# 1. Generate the dataset (about 6-10 minutes)
+# 1. Generate the dataset (about a minute, plus ~30 s to build the search index)
 dotnet run --project tools/Comments.Seeder -- --comments 1000000 --users 100000 --truncate
 
 # 2. Read-path benchmark

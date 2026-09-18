@@ -1,4 +1,3 @@
-using Threadline.Comments.Application;
 using Threadline.Comments.Infrastructure;
 using Threadline.Comments.Infrastructure.Messaging.Consumers;
 using Threadline.Comments.Worker;
@@ -12,7 +11,9 @@ builder.Services.AddSerilog((services, configuration) => configuration
     .Enrich.FromLogContext()
     .Enrich.WithProperty("Application", "threadline-comments-worker"));
 
-builder.Services.AddApplication();
+// No AddApplication(): the worker runs no MediatR requests. Registering the HTTP command handlers
+// here pulled in dependencies only the web tier provides (IClientContext), which the Development
+// host rejects at start-up when it validates the container.
 builder.Services.AddInfrastructure(builder.Configuration);
 
 // Everything the request path refuses to do lives here: draining the outbox onto the broker,
@@ -22,7 +23,7 @@ builder.Services.AddOutboxPublisher();
 
 builder.Services.AddMessaging(builder.Configuration, bus =>
 {
-    bus.AddConsumer<CommentIndexerConsumer>();
+    bus.AddCommentIndexer();
     bus.AddConsumer<AttachmentProcessorConsumer>();
     bus.AddConsumer<AttachmentIndexRefreshConsumer>();
 });

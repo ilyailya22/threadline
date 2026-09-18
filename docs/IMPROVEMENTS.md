@@ -56,6 +56,7 @@ grows by an order of magnitude. See [LOAD-TESTING.md](LOAD-TESTING.md#7-where-th
 
 | # | Improvement | Trigger | Size |
 |---|---|---|---|
+| C0 | **Page the GraphQL `replies` field** (per-parent `first`/`after` with `ROW_NUMBER() OVER (PARTITION BY ParentId)` in the DataLoader). The REST thread endpoint is paged; GraphQL `replies` still returns every direct reply of a parent — fine for ordinary threads, too much for the hottest seeded one (thousands of direct replies). Known limitation. | Any client uses GraphQL on hot threads | M |
 | C1 | Keyset ("search after") pagination in the API alongside page numbers | Users paging past the 10,000-item cap | M |
 | C2 | Read replica for the thread endpoint | Thread reads start competing with writes on the primary | S |
 | C3 | Separate filegroup for `OutboxMessages` | Outbox churn visible in I/O waits on the primary | S |

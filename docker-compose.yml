@@ -131,6 +131,10 @@ services:
       RateLimiting__ReadPerMinute: ${RATE_LIMIT_READ:-300}
       RateLimiting__WritePerMinute: ${RATE_LIMIT_WRITE:-10}
       RateLimiting__CaptchaPerMinute: ${RATE_LIMIT_CAPTCHA:-30}
+      # CAPTCHA bypass for the write load test. Off unless both are set, and never registered when
+      # ASPNETCORE_ENVIRONMENT is Production (the default here) — see docs/LOAD-TESTING.md.
+      LoadTest__Enabled: ${LOADTEST_ENABLED:-false}
+      LoadTest__BypassAnswer: ${LOADTEST_BYPASS:-}
     ports:
       - "${API_PORT:-5080}:8080"
     depends_on:

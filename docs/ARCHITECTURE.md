@@ -83,8 +83,12 @@ Three properties fall out of that, and each one is load-bearing:
    database returns a thread already in the order the page renders it. No sorting in application
    code, no re-assembly pass beyond building the parent/child links.
 
-2. **A whole thread is one indexed range scan** — `WHERE RootId = @id ORDER BY Path`, covered by
-   `IX_Comments_RootId_Path`. No recursive CTE, no query per level, no N+1.
+2. **A thread is one indexed range scan** — `WHERE RootId = @id ORDER BY Path`, covered by
+   `IX_Comments_RootId_Path`. No recursive CTE, no query per level, no N+1. Because the order is
+   depth-first, the same index also *pages* a thread: `AND Path > @cursor` continues exactly where
+   the previous page stopped, and every page is a contiguous run of the tree in which each node's
+   parent has already appeared. That mattered in practice — the seeded dataset's hottest thread has
+   ~14,000 replies, which as one response was 6.5 MB; paged it is ~47 KB per request.
 
 3. **Building a path requires no reads.** Nested sets need a table rewrite; `hierarchyid` needs to
    look at existing siblings; a per-parent counter needs `MAX(...) + 1` or an atomic increment.
@@ -103,9 +107,10 @@ unit test asserting the column still fits the index limit, so this cannot regres
 
 **Reply counters.** Incrementing a counter on the parent or the thread root turns every reply into
 a write to a row that all repliers to that thread share. On a popular thread that is the textbook
-hot-row contention problem. Counts live in the Elasticsearch read model and are updated
-asynchronously with a scripted partial update, which the shard applies atomically. A count that is
-one second stale costs nothing; a write path that serialises on a hot row costs everything.
+hot-row contention problem. Counts live in the Elasticsearch read model: every reply re-projects its thread root from SQL, and
+the document is written with its reply count as an external version, so an out-of-order projection
+can never overwrite a fresher one ([ADR 0003](adr/0003-elasticsearch-read-model.md)). A count that
+is a second stale costs nothing; a write path that serialises on a hot row costs everything.
 
 ---
 

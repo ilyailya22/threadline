@@ -54,9 +54,30 @@ per-field messages keyed in camelCase, matching the form's control names:
 
 Served from Elasticsearch through a two-level cache; falls back to SQL if search is unavailable.
 
-### `GET /api/comments/{rootId}/thread?maxDepth=10`
+### `GET /api/comments/{rootId}/thread`
 
-The whole thread, nested. `replies` is recursive. `404` if the root does not exist.
+One page of a thread, as a flat list in depth-first order. Threads are unbounded — the seeded
+dataset has one with ~14,000 replies — so the endpoint pages on the materialised path.
+
+| Query | Default | Values |
+|---|---|---|
+| `limit` | `100` | 1–500 |
+| `after` | — | the previous page's `nextCursor` |
+| `maxDepth` | `64` | 1–64 |
+
+```json
+{
+  "rootId": "…", "totalCount": 13859, "hasMore": true,
+  "nextCursor": "019ee433dcaf7cec019ee5a2…",
+  "nodes": [
+    { "id": "…", "parentId": null, "rootId": "…", "depth": 1, "author": {…}, "textHtml": "…", "createdAt": "…", "attachments": [] },
+    { "id": "…", "parentId": "…", "rootId": "…", "depth": 2, … }
+  ]
+}
+```
+
+Every node appears after its parent, so pages can be appended and the nesting rebuilt from
+`parentId`. `404` if the root does not exist; `400` for a malformed cursor.
 
 ### `POST /api/comments` — post a comment or reply
 
@@ -131,6 +152,7 @@ query Page {
 }
 
 query Thread($id: UUID!) {
+  # A comment and as many levels of replies as the client will render.
   comment(id: $id) {
     textHtml
     author { userName }

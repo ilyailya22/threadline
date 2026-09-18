@@ -99,7 +99,7 @@ export default function () {
     group('thread', () => {
       const comment = firstPage[randomIntBetween(0, firstPage.length - 1)];
 
-      const response = http.get(`${BASE_URL}/api/comments/${comment.id}/thread?maxDepth=10`, {
+      const response = http.get(`${BASE_URL}/api/comments/${comment.id}/thread?limit=100`, {
         tags: { name: 'GET /api/comments/{id}/thread' },
       });
 

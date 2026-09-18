@@ -15,6 +15,7 @@ import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Rate, Trend } from 'k6/metrics';
 import { randomIntBetween, randomString } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
+import { FormData } from 'https://jslib.k6.io/formdata/0.0.2/index.js';
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:5080';
 const BYPASS = __ENV.BYPASS || '';
@@ -55,15 +56,19 @@ export default function () {
 
   const captchaId = captcha.headers['X-Captcha-Id'];
 
-  const body = {
-    userName: `loadtest${randomIntBetween(1, 100000)}`,
-    email: `loadtest${randomIntBetween(1, 100000)}@example.com`,
-    text: `Load test message ${randomString(24)} with <strong>markup</strong>.`,
-    captchaId: captchaId,
-    captchaAnswer: BYPASS,
-  };
+  // multipart/form-data, exactly as the browser sends it. A plain object would be sent URL-encoded,
+  // which the endpoint rejects with 415 — a "write benchmark" that would measure nothing but that.
+  const form = new FormData();
+  const user = randomIntBetween(1, 100000);
 
-  const response = http.post(`${BASE_URL}/api/comments`, body, {
+  form.append('userName', `loadtest${user}`);
+  form.append('email', `loadtest${user}@example.com`);
+  form.append('text', `Load test message ${randomString(24)} with <strong>markup</strong>.`);
+  form.append('captchaId', captchaId);
+  form.append('captchaAnswer', BYPASS);
+
+  const response = http.post(`${BASE_URL}/api/comments`, form.body(), {
+    headers: { 'Content-Type': `multipart/form-data; boundary=${form.boundary}` },
     tags: { name: 'POST /api/comments' },
   });
 

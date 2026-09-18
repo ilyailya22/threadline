@@ -155,8 +155,9 @@ public sealed class CommentsApiFactory : WebApplicationFactory<Program>, IAsyncL
             await Task.Delay(100);
         }
 
-        // Published is not consumed: give in-flight consumers a moment to finish their writes.
-        await Task.Delay(750);
+        // Published is not consumed: give in-flight consumers time to finish their writes. The
+        // indexer batches for up to 100 ms and then waits for an index refresh (up to 1 s).
+        await Task.Delay(1_500);
     }
 
     /// <summary>Drops cached list pages, so the next read goes to the search index.</summary>

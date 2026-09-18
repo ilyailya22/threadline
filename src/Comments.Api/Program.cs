@@ -58,7 +58,7 @@ builder.Services.AddMessaging(
 
         if (hostWorkerConsumers)
         {
-            bus.AddConsumer<CommentIndexerConsumer>();
+            bus.AddCommentIndexer();
             bus.AddConsumer<AttachmentProcessorConsumer>();
             bus.AddConsumer<AttachmentIndexRefreshConsumer>();
         }

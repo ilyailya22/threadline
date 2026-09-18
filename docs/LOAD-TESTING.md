@@ -56,11 +56,11 @@ dotnet run --project tools/Comments.Seeder -- --comments 1000000 --users 100000 
 | Max depth | 8 | long enough to exercise the path range scan |
 | Reply targeting | biased to recent threads | replies cluster on fresh threads on real boards |
 | Timestamps | spread over 90 days | date sorts and deep pages are meaningful |
-| Search index | bulk-loaded | the list path is Elasticsearch, as in production |
+| Search index | built from SQL by the live projector | real text and true reply counts, as production serves them |
 
 Written with `SqlBulkCopy` — a million inserts through EF's change tracker would take hours. Paths,
 ids and depths come from the domain's own `CommentPath`, so the rows are indistinguishable from ones
-the API produced. On a laptop the seed takes roughly 6–10 minutes.
+the API produced. On the benchmark machine below the whole seed takes about a minute.
 
 ## 4. Scenarios
 
@@ -138,13 +138,51 @@ Numbers depend heavily on the machine — a laptop running SQL Server, Elasticse
 and the load generator on the same cores is measuring contention between them as much as the
 application. Record results with the hardware they were measured on.
 
-| Environment | Scenario | Rate | p95 | p99 | Errors |
-|---|---|---|---|---|---|
-| _fill in after running_ | browse | 200 req/s | | | |
-| | write | 30 req/s | | | |
-| | spike | 600 req/s | | | 5xx: |
+### Measured — 2026-09-18
 
-Reports produced by a run are committed under `loadtests/results/` when they are meant to be kept.
+**Environment:** AMD Ryzen 7 5700X (8 cores / 16 threads), 48 GB RAM, Windows 11 + Docker Desktop
+(WSL 2). Everything on one machine: SQL Server, Elasticsearch, RabbitMQ, Redis, Azurite, API,
+worker, nginx **and** the k6 load generator — so these numbers include all of them competing for the
+same cores, and a real deployment would do better. One API replica, one worker replica.
+
+**Dataset:** 1,000,000 comments, 100,000 users, 39,660 threads (max depth 8; the hottest thread has
+13,859 replies). Seeded in **63 s**; search index built from SQL in **26 s**.
+
+| Scenario | Load | Requests | p50 | p95 | p99 | Errors | SLO |
+|---|---|---|---|---|---|---|---|
+| **browse** — list | ramp to 200 req/s, 5 min hold | 121,815 total | 0.66 ms | **1.41 ms** | 18.2 ms | **0 %** | p95 < 300 ms ✓ |
+| **browse** — thread (paged) | 60 % of visits | (included) | 4.15 ms | **6.28 ms** | — | **0 %** | p95 < 400 ms ✓ |
+| **spike** | 20 → **600 req/s** in 10 s | 43,999 | 0.49 ms | **0.96 ms** | — | **0 % 5xx** | < 0.5 % 5xx ✓ |
+| **write** — post a comment | ramp to 30 posts/s | 4,393 posts | 6.09 ms | **7.71 ms** | — | **0 %** | p95 < 400 ms ✓ |
+
+Raw k6 output and JSON summaries: [`loadtests/results/`](../loadtests/results).
+
+**Reading these honestly.**
+
+- The list numbers are mostly the cache: the default first page is served from the in-process L1
+  tier, which is the point of the design, but it means these are not "Elasticsearch latencies".
+  Cold requests (cache miss, any sort, page 200) measured separately at **40–160 ms**.
+- `dropped_iterations` in the browse run (≈ 0.8/s) are k6 running out of virtual users because of
+  the 1–4 s think time, not failed requests — the server returned no errors.
+- The write p95 is one transaction plus the CAPTCHA round trip. Indexing, thumbnails and live updates
+  are not in it, by design.
+
+### What the benchmark changed
+
+The first run against the full dataset found two real problems, both fixed and then re-measured:
+
+| Finding | Before | After |
+|---|---|---|
+| The thread endpoint returned a whole thread at once | hottest thread: **6.5 MB, 780 ms** | keyset-paged on the materialised path: **47 KB, ~60 ms** per page |
+| The indexer waited for an index refresh per message | ≈ **32 events/s**; a 4k-event backlog took minutes | batches of up to 200: a **4,393-event backlog drained in 34 s**, worker start-up included |
+
+### Resilience check
+
+The worker was stopped, 4,393 comments were posted, and the worker was started again. Nothing was
+lost and nothing was duplicated: the outbox held every event, the backlog drained in 34 s, and the
+search index ended **exactly equal to SQL (48,447 threads in both)**.
+
+Reports produced by a run are committed under `loadtests/results/`.
 
 ## 7. Where the ceiling is, and what comes next
 
