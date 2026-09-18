@@ -66,7 +66,7 @@ public sealed partial class CommentTextSanitizer : ICommentTextSanitizer
         var errors = new List<SanitizationError>();
         var html = new StringBuilder(input.Length + 32);
         var plain = new StringBuilder(input.Length);
-        var openTags = new Stack<string>();
+        var openTags = new Stack<OpenTag>();
 
         var cursor = 0;
         foreach (var token in TagToken().EnumerateMatches(input))
@@ -89,11 +89,14 @@ public sealed partial class CommentTextSanitizer : ICommentTextSanitizer
         {
             AppendText(input.AsSpan(cursor), html, plain);
 
-            if (openTags.Count > 0)
+            // Demoted tags are text, so leaving one "unclosed" is fine; only a real tag must balance.
+            var unclosed = openTags.FirstOrDefault(t => !t.Demoted);
+
+            if (unclosed is not null)
             {
                 errors.Add(new SanitizationError(
                     "text.unclosed_tag",
-                    $"Tag <{openTags.Peek()}> is never closed."));
+                    $"Tag <{unclosed.Name}> is never closed."));
             }
         }
 
@@ -123,7 +126,7 @@ public sealed partial class CommentTextSanitizer : ICommentTextSanitizer
         string tag,
         int position,
         StringBuilder html,
-        Stack<string> openTags,
+        Stack<OpenTag> openTags,
         List<SanitizationError> errors)
     {
         var close = ClosingTag().Match(tag);
@@ -137,19 +140,39 @@ public sealed partial class CommentTextSanitizer : ICommentTextSanitizer
                 return;
             }
 
-            if (openTags.Count == 0 || openTags.Peek() != name)
+            // Demoted openings that were never closed are just text; they must not stand between a
+            // real closing tag and the real opening it belongs to.
+            while (openTags.Count > 0 && openTags.Peek().Demoted && openTags.Peek().Name != name)
+            {
+                openTags.Pop();
+            }
+
+            if (openTags.Count == 0 || openTags.Peek().Name != name)
             {
                 errors.Add(new SanitizationError(
                     "text.unexpected_closing_tag",
                     openTags.Count == 0
                         ? $"Closing tag </{name}> has no matching opening tag."
-                        : $"Closing tag </{name}> does not match the still-open <{openTags.Peek()}>.",
+                        : $"Closing tag </{name}> does not match the still-open <{openTags.Peek().Name}>.",
                     position));
                 return;
             }
 
-            openTags.Pop();
-            html.Append("</").Append(name).Append('>');
+            var opening = openTags.Pop();
+
+            // The partner of a demoted opening is demoted too. Without this,
+            // <a href="javascript:…">x</a> would escape the opening tag and then reject the whole
+            // comment because the closing one looked orphaned — punishing the user for markup we
+            // had already made harmless.
+            if (opening.Demoted)
+            {
+                AppendEscaped(tag, html);
+            }
+            else
+            {
+                html.Append("</").Append(name).Append('>');
+            }
+
             return;
         }
 
@@ -178,7 +201,7 @@ public sealed partial class CommentTextSanitizer : ICommentTextSanitizer
             return;
         }
 
-        if (tagName == "a" && openTags.Contains("a"))
+        if (tagName == "a" && openTags.Any(t => t.Name == "a" && !t.Demoted))
         {
             errors.Add(new SanitizationError(
                 "text.nested_anchor",
@@ -189,14 +212,21 @@ public sealed partial class CommentTextSanitizer : ICommentTextSanitizer
 
         var attributeText = open.Groups["attrs"].Value;
 
+        var selfClosing = open.Groups["selfclose"].Success;
+
         if (!TryRenderAttributes(tagName, attributeText, out var rendered))
         {
-            // Bad attributes make the tag untrusted; degrade it to text rather than dropping data.
+            // Bad attributes make the tag untrusted; degrade it to text rather than dropping data,
+            // and remember it so its closing tag is degraded the same way.
             AppendEscaped(tag, html);
+
+            if (!selfClosing)
+            {
+                openTags.Push(new OpenTag(tagName, Demoted: true));
+            }
+
             return;
         }
-
-        var selfClosing = open.Groups["selfclose"].Success;
 
         html.Append('<').Append(tagName).Append(rendered).Append('>');
 
@@ -206,9 +236,12 @@ public sealed partial class CommentTextSanitizer : ICommentTextSanitizer
         }
         else
         {
-            openTags.Push(tagName);
+            openTags.Push(new OpenTag(tagName, Demoted: false));
         }
     }
+
+    /// <summary>An allowed tag that has been opened; <see cref="Demoted"/> when it was escaped to text.</summary>
+    private sealed record OpenTag(string Name, bool Demoted);
 
     /// <summary>
     /// Rebuilds the attribute list from scratch instead of copying the user's. Anything not on the

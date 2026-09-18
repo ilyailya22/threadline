@@ -1,0 +1,345 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.page__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.page__title {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.page__subtitle {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.page__tools {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.page__form {
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  background: var(--surface);
+  animation: form-in 200ms ease-out;
+}
+
+.page__error {
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: 0.45rem;
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
+}
+
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.live__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.live--on .live__dot {
+  background: var(--success);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--success) 60%, transparent);
+  animation: live-pulse 2s ease-out infinite;
+}
+
+.live-banner {
+  align-self: flex-start;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 0.35rem 0.9rem;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  color: var(--accent);
+  font-size: 0.8rem;
+  cursor: pointer;
+  animation: form-in 200ms ease-out;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  background: var(--surface);
+  transition: opacity 140ms ease;
+}
+
+.table-wrapper--loading {
+  opacity: 0.6;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.table th {
+  padding: 0.6rem 0.75rem;
+  text-align: left;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-muted);
+  white-space: nowrap;
+}
+
+.table__sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--accent);
+  }
+}
+
+.table__arrow {
+  font-size: 0.65rem;
+  opacity: 0.75;
+}
+
+.table__row {
+  cursor: pointer;
+  transition: background 120ms ease;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--surface-muted);
+  }
+}
+
+.table__row--open {
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+
+.table td {
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.table__user {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.table__avatar {
+  display: grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  background: linear-gradient(
+    135deg,
+    var(--accent),
+    color-mix(in srgb, var(--accent) 55%, #7b4bd6)
+  );
+  color: #fff;
+  font-size: 0.72rem;
+}
+
+.table__email {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.table__preview {
+  max-width: 42rem;
+
+  /* Keeps a wall of text from making one row taller than the screen. */
+  max-height: 7.5rem;
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, #000 70%, transparent);
+}
+
+.table__numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.table__thread-row td {
+  background: var(--surface-muted);
+  padding: 0.5rem 0.75rem 1rem;
+}
+
+.table__empty,
+.table__loading {
+  padding: 1.5rem 0.75rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.pager__button {
+  min-width: 2.2rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.85rem;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+}
+
+.pager__button--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.pager__gap {
+  padding: 0 0.15rem;
+  color: var(--text-muted);
+}
+
+.pager__summary {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/*
+ * Below 760px the table stops being a table: each row becomes a card with the column name printed
+ * next to its value. A five-column table with a comment body in it cannot be made to work on a
+ * phone by scrolling alone.
+ */
+@media (max-width: 760px) {
+  .table thead {
+    display: none;
+  }
+
+  .table,
+  .table tbody,
+  .table tr,
+  .table td {
+    display: block;
+    width: 100%;
+  }
+
+  .table__row {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .table td {
+    border: none;
+    padding: 0.25rem 0.75rem;
+  }
+
+  .table td::before {
+    content: attr(data-label) ': ';
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+  }
+
+  .table__numeric {
+    text-align: left;
+  }
+
+  .table__preview {
+    max-width: none;
+  }
+}
+
+@keyframes form-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.4rem);
+  }
+}
+
+@keyframes live-pulse {
+  70% {
+    box-shadow: 0 0 0 0.35rem transparent;
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page__form,
+  .live-banner {
+    animation: none;
+  }
+
+  .live--on .live__dot {
+    animation: none;
+  }
+}
+
+.thread-more {
+  display: block;
+  margin: 0.75rem auto 0;
+  padding: 0.4rem 1rem;
+  border: 1px dashed var(--accent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.82rem;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+}

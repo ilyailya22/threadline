@@ -42,3 +42,11 @@ dotnet_naming_style.underscore_camel.capitalization = camel_case
 dotnet_diagnostic.CA2007.severity = none      # ConfigureAwait not needed in ASP.NET Core
 dotnet_diagnostic.CA1848.severity = none      # LoggerMessage source-gen not enforced everywhere
 dotnet_diagnostic.IDE0055.severity = warning
+
+# EF Core scaffolds these; they are generated code and not held to the project's style rules.
+[**/Migrations/*.cs]
+generated_code = true
+dotnet_analyzer_diagnostic.severity = none
+dotnet_diagnostic.IDE0161.severity = none
+dotnet_diagnostic.CA1861.severity = none
+dotnet_diagnostic.IDE0055.severity = none

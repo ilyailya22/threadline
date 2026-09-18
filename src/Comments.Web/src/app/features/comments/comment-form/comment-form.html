@@ -1,0 +1,219 @@
+<form class="form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+  <div class="form__grid">
+    <label class="field">
+      <span class="field__label"
+        >User Name <span class="field__required" aria-hidden="true">*</span></span
+      >
+      <input
+        class="field__input"
+        type="text"
+        formControlName="userName"
+        autocomplete="nickname"
+        maxlength="64"
+        [attr.aria-invalid]="controlError('userName') ? 'true' : null"
+      />
+      @if (controlError('userName'); as error) {
+        <span class="field__error">{{ error }}</span>
+      } @else {
+        <span class="field__hint">Латинские буквы и цифры.</span>
+      }
+    </label>
+
+    <label class="field">
+      <span class="field__label"
+        >E-mail <span class="field__required" aria-hidden="true">*</span></span
+      >
+      <input
+        class="field__input"
+        type="email"
+        formControlName="email"
+        autocomplete="email"
+        maxlength="254"
+        [attr.aria-invalid]="controlError('email') ? 'true' : null"
+      />
+      @if (controlError('email'); as error) {
+        <span class="field__error">{{ error }}</span>
+      }
+    </label>
+
+    <label class="field field--wide">
+      <span class="field__label">Home page</span>
+      <input
+        class="field__input"
+        type="url"
+        formControlName="homePage"
+        placeholder="https://example.com"
+        autocomplete="url"
+        maxlength="2048"
+      />
+      @if (controlError('homePage'); as error) {
+        <span class="field__error">{{ error }}</span>
+      } @else {
+        <span class="field__hint">Необязательное поле.</span>
+      }
+    </label>
+  </div>
+
+  <div class="field field--wide">
+    <div class="toolbar" role="group" aria-label="Разрешённые HTML-теги">
+      @for (tag of tagButtons; track tag.label) {
+        <button type="button" class="toolbar__button" [title]="tag.title" (click)="applyTag(tag)">
+          [{{ tag.label }}]
+        </button>
+      }
+
+      <button type="button" class="toolbar__button toolbar__button--ghost" (click)="preview()">
+        Предпросмотр
+      </button>
+    </div>
+
+    <label class="field__label" for="comment-text">
+      Text <span class="field__required" aria-hidden="true">*</span>
+    </label>
+
+    <textarea
+      #textArea
+      id="comment-text"
+      class="field__input field__input--area"
+      formControlName="text"
+      rows="6"
+      maxlength="20000"
+      [attr.aria-invalid]="controlError('text') ? 'true' : null"
+    ></textarea>
+
+    <div class="field__footer">
+      @if (controlError('text'); as error) {
+        <span class="field__error">{{ error }}</span>
+      } @else {
+        <span class="field__hint">
+          Разрешены теги: &lt;a href="" title=""&gt;, &lt;code&gt;, &lt;i&gt;, &lt;strong&gt;. Все
+          теги должны быть закрыты.
+        </span>
+      }
+      <span class="field__counter">{{ form.controls.text.value.length }} / 20000</span>
+    </div>
+  </div>
+
+  @if (previewHtml(); as html) {
+    <section class="preview" aria-live="polite">
+      <header class="preview__header">
+        <h3 class="preview__title">Предпросмотр</h3>
+        <button
+          type="button"
+          class="preview__close"
+          (click)="closePreview()"
+          aria-label="Закрыть предпросмотр"
+        >
+          ✕
+        </button>
+      </header>
+      <!-- Rendered from the server's sanitiser output, then passed through Angular's sanitiser
+           again by the pipe. Two independent allowlists have to fail for markup to execute. -->
+      <div class="preview__body comment-text" [innerHTML]="html | sanitizedHtml"></div>
+    </section>
+  }
+
+  <div class="form__grid">
+    <div class="field">
+      <span class="field__label">Файл</span>
+
+      <div class="file">
+        <input
+          #fileInput
+          class="file__input"
+          type="file"
+          accept=".jpg,.jpeg,.png,.gif,.txt"
+          (change)="onFileSelected($event)"
+        />
+
+        @if (selected(); as chosen) {
+          <div class="file__selected">
+            @if (chosen.previewUrl) {
+              <img
+                class="file__thumb"
+                [src]="chosen.previewUrl"
+                alt="Предпросмотр выбранного изображения"
+              />
+            }
+            <span class="file__meta">
+              <span class="file__name">{{ chosen.file.name }}</span>
+              @if (chosen.note) {
+                <span class="file__note">{{ chosen.note }}</span>
+              }
+            </span>
+            <button type="button" class="file__clear" (click)="clearFile(fileInput)">Убрать</button>
+          </div>
+        }
+      </div>
+
+      @if (fileError(); as error) {
+        <span class="field__error">{{ error }}</span>
+      } @else {
+        <span class="field__hint">JPG, GIF, PNG (уменьшается до 320×240) или TXT до 100 КБ.</span>
+      }
+    </div>
+
+    <div class="field">
+      <span class="field__label"
+        >CAPTCHA <span class="field__required" aria-hidden="true">*</span></span
+      >
+
+      <div class="captcha">
+        @if (captcha(); as challenge) {
+          <img
+            class="captcha__image"
+            [src]="challenge.imageUrl"
+            alt="Символы на картинке"
+            width="220"
+            height="70"
+          />
+        } @else {
+          <div class="captcha__placeholder" aria-hidden="true"></div>
+        }
+
+        <button
+          type="button"
+          class="captcha__refresh"
+          (click)="refreshCaptcha()"
+          title="Обновить картинку"
+        >
+          ⟳
+        </button>
+      </div>
+
+      <input
+        class="field__input"
+        type="text"
+        formControlName="captchaAnswer"
+        autocomplete="off"
+        maxlength="16"
+        placeholder="Символы с картинки"
+        [attr.aria-invalid]="controlError('captchaAnswer') ? 'true' : null"
+      />
+
+      @if (controlError('captchaAnswer'); as error) {
+        <span class="field__error">{{ error }}</span>
+      }
+    </div>
+  </div>
+
+  @if (serverError(); as error) {
+    <p class="form__error" role="alert">{{ error }}</p>
+  }
+
+  <div class="form__actions">
+    <button class="button button--primary" type="submit" [disabled]="submitting()">
+      @if (submitting()) {
+        Отправка…
+      } @else if (parentId()) {
+        Ответить
+      } @else {
+        Отправить
+      }
+    </button>
+
+    @if (parentId()) {
+      <button class="button" type="button" (click)="cancel()">Отмена</button>
+    }
+  </div>
+</form>

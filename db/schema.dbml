@@ -1,0 +1,104 @@
+// Threadline Comments — schema in DBML.
+//
+// Paste into https://dbdiagram.io to get a rendered ER diagram in a browser, with no tool to
+// install. The MySQL Workbench version lives next to this file as schema.mysql.sql; the
+// authoritative definition is the EF Core migration.
+
+Project threadline_comments {
+  database_type: 'MS SQL Server'
+  Note: 'SPA comments board — unlimited cascading replies over a materialised path.'
+}
+
+Table Users {
+  Id           uuid         [pk, note: 'UUID v7 — time-ordered, so inserts stay at the end of the clustered index']
+  UserName     varchar(64)  [not null, note: 'Latin letters and digits only']
+  Email        varchar(254) [not null]
+  HomePage     varchar(2048)
+  CreatedAt    datetimeoffset [not null]
+  LastPostedAt datetimeoffset [not null]
+
+  indexes {
+    (UserName, Email) [unique, name: 'UX_Users_UserName_Email']
+    Email [name: 'IX_Users_Email']
+  }
+
+  Note: 'Identity is the (name, e-mail) pair typed into the form. There is no login.'
+}
+
+Table Comments {
+  Id              uuid          [pk]
+  AuthorId        uuid          [not null, ref: > Users.Id]
+  ParentId        uuid          [ref: > Comments.Id, note: 'NULL for a top-level comment']
+  RootId          uuid          [not null, note: 'Thread root; equals Id at the root']
+  Path            varchar(1024) [not null, note: 'Materialised path: 16 hex chars per ancestor']
+  Depth           int           [not null]
+  TextHtml        varchar(20000)[not null, note: 'Sanitised to <a> <code> <i> <strong>']
+  TextPlain       varchar(20000)[not null]
+  CreatedAt       datetimeoffset[not null]
+  ClientIpHash    char(64)      [not null, note: 'HMAC-SHA256 with a server-side pepper']
+  ClientUserAgent varchar(512)
+  ClientId        uuid          [note: 'Opaque first-party cookie value']
+
+  indexes {
+    CreatedAt        [name: 'IX_Comments_TopLevel_CreatedAt', note: 'FILTERED: ParentId IS NULL; INCLUDE (AuthorId, RootId)']
+    (RootId, Path)   [name: 'IX_Comments_RootId_Path', note: 'Whole thread in one range scan, already in display order']
+    (ParentId, CreatedAt) [name: 'IX_Comments_ParentId_CreatedAt']
+    AuthorId         [name: 'IX_Comments_AuthorId']
+  }
+
+  Note: 'No reply counter by design — that would make every reply write to a shared hot row.'
+}
+
+Table Attachments {
+  Id               uuid         [pk]
+  CommentId        uuid         [not null, ref: > Comments.Id]
+  Kind             tinyint      [not null, note: '1 = Image, 2 = TextFile']
+  Status           tinyint      [not null, note: '0 = Pending, 1 = Ready, 2 = Failed']
+  ContentType      varchar(127) [not null]
+  OriginalFileName varchar(260) [not null, note: 'Display only; never used to build a path']
+  SizeBytes        bigint       [not null]
+  StoragePath      varchar(512) [not null]
+  ThumbnailPath    varchar(512)
+  Width            int
+  Height           int
+  CreatedAt        datetimeoffset [not null]
+  ProcessedAt      datetimeoffset
+  FailureReason    varchar(1024)
+
+  indexes {
+    CommentId [name: 'IX_Attachments_CommentId']
+    Status    [name: 'IX_Attachments_Pending', note: 'FILTERED: Status = 0']
+  }
+
+  Note: 'Images are downscaled to at most 320x240 by a worker; Pending covers the gap.'
+}
+
+Table OutboxMessages {
+  Id            uuid         [pk]
+  Type          varchar(200) [not null]
+  Payload       nvarchar_max [not null]
+  OccurredAt    datetimeoffset [not null]
+  ProcessedAt   datetimeoffset
+  Attempts      int          [not null, default: 0]
+  NextAttemptAt datetimeoffset
+  Error         varchar(2000)
+
+  indexes {
+    (NextAttemptAt, OccurredAt) [name: 'IX_OutboxMessages_Pending', note: 'FILTERED: ProcessedAt IS NULL']
+  }
+
+  Note: 'Written in the same transaction as the comment it announces.'
+}
+
+Table InboxMessages {
+  MessageId    uuid         [not null]
+  ConsumerType varchar(200) [not null]
+  ProcessedAt  datetimeoffset [not null]
+
+  indexes {
+    (MessageId, ConsumerType) [pk]
+    ProcessedAt [name: 'IX_InboxMessages_ProcessedAt']
+  }
+
+  Note: 'Idempotency for at-least-once delivery.'
+}

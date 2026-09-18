@@ -1,0 +1,59 @@
+@let item = comment();
+
+<article class="node" [attr.data-depth]="item.depth">
+  <header class="node__header">
+    <span class="node__avatar" aria-hidden="true">{{
+      item.author.userName.charAt(0).toUpperCase()
+    }}</span>
+
+    <span class="node__author">
+      @if (item.author.homePage) {
+        <a
+          class="node__name"
+          [href]="item.author.homePage"
+          target="_blank"
+          rel="nofollow noopener noreferrer"
+        >
+          {{ item.author.userName }}
+        </a>
+      } @else {
+        <span class="node__name">{{ item.author.userName }}</span>
+      }
+      <span class="node__email">{{ item.author.email }}</span>
+    </span>
+
+    <time class="node__time" [attr.datetime]="item.createdAt">{{
+      item.createdAt | relativeTime
+    }}</time>
+
+    <button type="button" class="node__reply" (click)="toggleReply()">
+      {{ replying() ? 'Отмена' : 'Ответить' }}
+    </button>
+  </header>
+
+  <!-- The server already sanitised this to four allowed tags; the pipe runs Angular's sanitiser
+       over it as an independent second check before it reaches the DOM. -->
+  <div class="node__body comment-text" [innerHTML]="item.textHtml | sanitizedHtml"></div>
+
+  @for (attachment of item.attachments; track attachment.id) {
+    <app-attachment-view [attachment]="attachment" />
+  }
+
+  @if (replying()) {
+    <div class="node__form">
+      <app-comment-form
+        [parentId]="item.id"
+        (created)="onReplied($event)"
+        (cancelled)="toggleReply()"
+      />
+    </div>
+  }
+
+  @if (item.replies.length > 0) {
+    <div class="node__replies">
+      @for (reply of item.replies; track reply.id) {
+        <app-comment-node [comment]="reply" (replied)="replied.emit($event)" />
+      }
+    </div>
+  }
+</article>
