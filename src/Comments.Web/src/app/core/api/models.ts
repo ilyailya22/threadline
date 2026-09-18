@@ -134,3 +134,17 @@ export interface ProblemDetails {
   readonly traceId?: string;
   readonly errors?: Readonly<Record<string, readonly string[]>>;
 }
+
+/**
+ * What the form reports after a successful post: the server's result plus the author details the
+ * user typed. Enough for the page to show the new comment immediately, without waiting for the
+ * asynchronous search index to catch up.
+ */
+export interface CommentPosted {
+  readonly result: CreateCommentResult;
+  readonly author: {
+    readonly userName: string;
+    readonly email: string;
+    readonly homePage?: string | null;
+  };
+}

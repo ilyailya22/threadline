@@ -105,9 +105,10 @@ public static class DependencyInjection
             return ConnectionMultiplexer.Connect(options);
         });
 
-        services.AddStackExchangeRedisCache(options =>
-            options.ConnectionMultiplexerFactory = () =>
-                Task.FromResult(services.BuildServiceProvider().GetRequiredService<IConnectionMultiplexer>()));
+        // Registered as the IDistributedCache that HybridCache uses as its L2. It gets the
+        // connection string rather than the multiplexer above: resolving that here would mean
+        // building a second service provider, and with it a second singleton multiplexer.
+        services.AddStackExchangeRedisCache(options => options.Configuration = redisConnection);
 
 #pragma warning disable EXTEXP0018 // HybridCache is still marked experimental in this package version.
         services.AddHybridCache(options =>
@@ -143,6 +144,7 @@ public static class DependencyInjection
         });
 
         services.AddSingleton<ICommentSearchIndex, ElasticsearchCommentIndex>();
+        services.AddScoped<CommentSearchProjector>();
 
         return services;
     }

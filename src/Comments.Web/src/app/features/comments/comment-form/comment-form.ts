@@ -22,7 +22,7 @@ import {
 import { CommentsApi } from '../../../core/api/comments-api';
 import type {
   CaptchaChallenge,
-  CreateCommentResult,
+  CommentPosted,
   ProblemDetails,
   ValidationRules,
 } from '../../../core/api/models';
@@ -60,7 +60,7 @@ export class CommentForm {
   /** Set when replying; absent for a new top-level comment. */
   readonly parentId = input<string | null>(null);
 
-  readonly created = output<CreateCommentResult>();
+  readonly created = output<CommentPosted>();
   readonly cancelled = output<void>();
 
   /**
@@ -280,7 +280,14 @@ export class CommentForm {
           this.submitting.set(false);
           this.rememberIdentity();
           this.resetAfterSubmit();
-          this.created.emit(result);
+          this.created.emit({
+            result,
+            author: {
+              userName: value.userName.trim(),
+              email: value.email.trim(),
+              homePage: value.homePage.trim() || null,
+            },
+          });
         },
         error: (error: HttpErrorResponse) => {
           this.submitting.set(false);

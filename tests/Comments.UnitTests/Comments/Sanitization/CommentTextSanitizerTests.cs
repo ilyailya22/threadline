@@ -81,6 +81,34 @@ public sealed class CommentTextSanitizerTests
         AssertOnlyInertMarkup(result.Value!.Html);
     }
 
+    /// <summary>
+    /// Regression: an allowed tag with a forbidden attribute is escaped to text, and its closing tag
+    /// must be escaped with it. Otherwise the orphaned closing tag fails the balance check and the
+    /// user's whole comment is refused — for markup that had already been made harmless.
+    /// </summary>
+    [Theory]
+    [InlineData("<a href=\"javascript:alert(1)\">click</a>")]
+    [InlineData("<a>no href</a>")]
+    [InlineData("<i onclick=\"alert(1)\">hover</i>")]
+    [InlineData("<strong><a href=\"data:x\">inner</a></strong>")]
+    public void A_demoted_tag_takes_its_closing_tag_with_it(string input)
+    {
+        var result = _sanitizer.Sanitize(input);
+
+        result.IsValid.ShouldBeTrue(string.Join("; ", result.Errors.Select(e => e.Message)));
+        AssertOnlyInertMarkup(result.Value!.Html);
+        result.Value.Html.ShouldContain("&lt;/");
+    }
+
+    [Fact]
+    public void A_demoted_tag_does_not_hide_a_genuinely_unclosed_one()
+    {
+        var result = _sanitizer.Sanitize("<strong>bold <a href=\"javascript:x\">bad</a> still open");
+
+        result.IsValid.ShouldBeFalse();
+        result.Errors.ShouldContain(e => e.Code == "text.unclosed_tag");
+    }
+
     [Fact]
     public void Escapes_the_classic_nested_script_bypass()
     {

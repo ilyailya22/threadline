@@ -36,15 +36,6 @@ public interface ICommentSearchIndex
         IReadOnlyCollection<CommentSearchDocument> documents,
         CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Bumps the denormalised reply counter on the thread root. Uses a scripted partial update so
-    /// two concurrent replies cannot lose an increment.
-    /// </summary>
-    Task IncrementReplyCountAsync(
-        Guid rootId,
-        DateTimeOffset lastReplyAt,
-        CancellationToken cancellationToken = default);
-
     Task<bool> IsAvailableAsync(CancellationToken cancellationToken = default);
 }
 

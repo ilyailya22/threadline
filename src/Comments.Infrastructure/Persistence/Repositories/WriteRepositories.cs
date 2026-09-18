@@ -17,7 +17,9 @@ public sealed class UserRepository(AppDbContext context) : IUserRepository
 
         // Hits UX_Users_UserName_Email. The comparison is case-insensitive because the column
         // collation is, which matches how UserName and EmailAddress define their own equality.
-        return context.Users.FirstOrDefaultAsync(
+        // Tracked: the user is modified (last activity) and becomes the Author of a new comment. An
+        // untracked instance would be seen as a new entity and inserted a second time.
+        return context.Users.AsTracking().FirstOrDefaultAsync(
             u => u.UserName == userName && u.Email == email,
             cancellationToken);
     }
@@ -34,7 +36,7 @@ public sealed class CommentRepository(AppDbContext context) : ICommentRepository
     /// nothing else about the parent is needed — no attachments, no author, no subtree.
     /// </summary>
     public Task<Comment?> GetForReplyAsync(Guid id, CancellationToken cancellationToken = default) =>
-        context.Comments.FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+        context.Comments.AsTracking().FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
 
     public Task<bool> ExistsAsync(Guid id, CancellationToken cancellationToken = default) =>
         context.Comments.AnyAsync(c => c.Id == id, cancellationToken);

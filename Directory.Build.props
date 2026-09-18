@@ -13,7 +13,9 @@
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
-    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Not invariant: Microsoft.Data.SqlClient requires ICU and throws "Globalization Invariant
+         Mode is not supported" at the first connection without it. -->
+    <InvariantGlobalization>false</InvariantGlobalization>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
 
     <!--

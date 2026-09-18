@@ -28,8 +28,21 @@ public static class RateLimitPolicies
     public const string Preview = "preview";
     public const string Captcha = "captcha";
 
-    public static IServiceCollection AddApiRateLimiting(this IServiceCollection services)
+    public static IServiceCollection AddApiRateLimiting(
+        this IServiceCollection services,
+        IConfiguration configuration)
     {
+        ArgumentNullException.ThrowIfNull(configuration);
+
+        // Limits are configuration, not constants: a load test or an integration test that posts
+        // thirty comments in a second is legitimate there and abuse in production. Defaults are the
+        // production values.
+        var section = configuration.GetSection("RateLimiting");
+        var read = section.GetValue("ReadPerMinute", 300);
+        var preview = section.GetValue("PreviewPerMinute", 60);
+        var captcha = section.GetValue("CaptchaPerMinute", 30);
+        var write = section.GetValue("WritePerMinute", 10);
+
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -47,12 +60,12 @@ public static class RateLimitPolicies
                     cancellationToken);
             };
 
-            options.AddPolicy(Read, context => Partition(context, permitLimit: 300, window: 1));
-            options.AddPolicy(Preview, context => Partition(context, permitLimit: 60, window: 1));
-            options.AddPolicy(Captcha, context => Partition(context, permitLimit: 30, window: 1));
+            options.AddPolicy(Read, context => Partition(context, permitLimit: read, window: 1));
+            options.AddPolicy(Preview, context => Partition(context, permitLimit: preview, window: 1));
+            options.AddPolicy(Captcha, context => Partition(context, permitLimit: captcha, window: 1));
 
             // Ten comments a minute is far more than a person types and far less than a script wants.
-            options.AddPolicy(Write, context => Partition(context, permitLimit: 10, window: 1));
+            options.AddPolicy(Write, context => Partition(context, permitLimit: write, window: 1));
         });
 
         return services;

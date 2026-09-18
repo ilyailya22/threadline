@@ -129,6 +129,25 @@ public sealed partial class ElasticsearchCommentIndex(
         return IndexManyAsync([document], cancellationToken);
     }
 
+    /// <summary>
+    /// Writes documents with external versioning, so a stale projection can never overwrite a
+    /// fresher one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Every document is a full projection rebuilt from SQL, and projections of the same thread can
+    /// run concurrently on different workers and finish out of order. The version is the thread's
+    /// reply count, which only ever grows, and <c>external_gte</c> makes Elasticsearch reject any
+    /// write whose count is lower than what it already holds — so the last write to land is always
+    /// at least as fresh as every one before it. Equal versions are accepted, which is what lets an
+    /// attachment finishing processing update a thread whose count has not changed.
+    /// </para>
+    /// <para>
+    /// <c>refresh=wait_for</c> returns only once the documents are searchable. The caller invalidates
+    /// the list cache immediately afterwards; without the wait, the next reader would re-cache the
+    /// page from an index that has not refreshed yet and serve it stale for the whole TTL.
+    /// </para>
+    /// </remarks>
     public async Task IndexManyAsync(
         IReadOnlyCollection<CommentSearchDocument> documents,
         CancellationToken cancellationToken = default)
@@ -145,64 +164,58 @@ public sealed partial class ElasticsearchCommentIndex(
         foreach (var document in documents)
         {
             ndjson
-                .Append("""{"index":{"_id":""")
-                .Append(JsonSerializer.Serialize(document.Id.ToString("N"), Json))
-                .AppendLine("}}")
-                .AppendLine(JsonSerializer.Serialize(document, Json));
+                .Append(JsonSerializer.Serialize(
+                    new
+                    {
+                        index = new
+                        {
+                            _id = document.Id.ToString("N"),
+                            version = document.ReplyCount,
+                            version_type = "external_gte",
+                        },
+                    },
+                    Json))
+                .Append('\n')
+                .Append(JsonSerializer.Serialize(document, Json))
+                .Append('\n');
         }
 
         var response = await client.Transport.RequestAsync<StringResponse>(
             Elastic.Transport.HttpMethod.POST,
-            $"/{_options.Alias}/_bulk",
+            $"/{_options.Alias}/_bulk?refresh=wait_for",
             PostData.String(ndjson.ToString()),
             cancellationToken: cancellationToken);
 
-        if (response.ApiCallDetails.HttpStatusCode != 200
-            || response.Body?.Contains("\"errors\":true", StringComparison.Ordinal) == true)
+        if (response.ApiCallDetails.HttpStatusCode != 200)
         {
             throw new InvalidOperationException($"Elasticsearch bulk index failed: {response.Body}");
         }
+
+        EnsureNoRealFailures(response.Body);
     }
 
     /// <summary>
-    /// Increments the denormalised reply counter with a painless script.
+    /// A version conflict on a bulk item means a fresher projection already landed — the intended
+    /// outcome, not an error. Anything else is a genuine failure and must be retried.
     /// </summary>
-    /// <remarks>
-    /// A read-modify-write from the worker would lose increments whenever two replies to the same
-    /// thread are processed concurrently — which, on a popular thread, is most of them. A scripted
-    /// partial update is applied atomically by the shard, so the count stays right no matter how
-    /// many workers are running.
-    /// </remarks>
-    public async Task IncrementReplyCountAsync(
-        Guid rootId,
-        DateTimeOffset lastReplyAt,
-        CancellationToken cancellationToken = default)
+    private static void EnsureNoRealFailures(string? body)
     {
-        var body = JsonSerializer.Serialize(
-            new
-            {
-                script = new
-                {
-                    source =
-                        "ctx._source.replyCount = (ctx._source.replyCount == null ? 0 : ctx._source.replyCount) + 1;"
-                        + " ctx._source.lastReplyAt = params.at;",
-                    lang = "painless",
-                    @params = new { at = lastReplyAt },
-                },
-            },
-            Json);
-
-        var response = await client.Transport.RequestAsync<StringResponse>(
-            Elastic.Transport.HttpMethod.POST,
-            $"/{_options.Alias}/_update/{rootId:N}?retry_on_conflict=5",
-            PostData.String(body),
-            cancellationToken: cancellationToken);
-
-        // 404 means the root has not been indexed yet — the indexer will pick up the correct count
-        // when it processes the root's own event, so this is not an error worth retrying forever.
-        if (response.ApiCallDetails.HttpStatusCode is not (200 or 201 or 404))
+        if (body is null || !body.Contains("\"errors\":true", StringComparison.Ordinal))
         {
-            throw new InvalidOperationException($"Elasticsearch update failed: {response.Body}");
+            return;
+        }
+
+        using var parsed = JsonDocument.Parse(body);
+
+        foreach (var item in parsed.RootElement.GetProperty("items").EnumerateArray())
+        {
+            var result = item.GetProperty("index");
+
+            if (result.TryGetProperty("error", out var error)
+                && error.GetProperty("type").GetString() != "version_conflict_engine_exception")
+            {
+                throw new InvalidOperationException($"Elasticsearch bulk index failed: {error}");
+            }
         }
     }
 

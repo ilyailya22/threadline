@@ -77,7 +77,7 @@ Every "мы предпочитаем" option in the assignment was taken.
 | Relational database | **MS SQL Server 2022** |
 | Frontend | **Angular 22** — standalone, signals, zoneless |
 | Message broker | **RabbitMQ** via MassTransit |
-| Search / NoSQL | **Elasticsearch 8** |
+| Search / NoSQL | **Elasticsearch 9** |
 | Cache | **Redis 7** through `HybridCache` (in-process L1 + Redis L2) |
 | Graph | **GraphQL** (HotChocolate 16) with DataLoader batching |
 | WebSocket | **SignalR** with a Redis backplane |

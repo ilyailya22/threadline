@@ -23,6 +23,9 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Two JSON levels per comment level, plus the envelope around the tree.
+var jsonMaxDepth = (Threadline.Comments.Domain.Comments.CommentPath.MaxDepth * 2) + 16;
+
 // ---------------------------------------------------------------- logging
 //
 // Serilog is configured from appsettings so the log level can be changed per environment without a
@@ -39,13 +42,32 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 // The API hosts only the SignalR fan-out consumer. Indexing and image processing belong to the
 // worker, which can then be scaled for throughput independently of the web tier.
+//
+// Messaging:HostWorkerConsumers=true runs the worker's consumers and the outbox publisher inside the
+// API process as well. That is the "single container" mode — useful for the integration tests (one
+// process exercises the whole pipeline) and for a minimal deployment where one process is enough.
+// The normal topology keeps them apart so each can be scaled on its own signal.
+var hostWorkerConsumers = builder.Configuration.GetValue("Messaging:HostWorkerConsumers", false);
+
 builder.Services.AddMessaging(
     builder.Configuration,
     bus =>
     {
         bus.AddConsumer<CommentBroadcastConsumer>();
         bus.AddConsumer<AttachmentReadyBroadcastConsumer>();
+
+        if (hostWorkerConsumers)
+        {
+            bus.AddConsumer<CommentIndexerConsumer>();
+            bus.AddConsumer<AttachmentProcessorConsumer>();
+            bus.AddConsumer<AttachmentIndexRefreshConsumer>();
+        }
     });
+
+if (hostWorkerConsumers)
+{
+    builder.Services.AddOutboxPublisher();
+}
 
 // The CAPTCHA bypass exists so the write load test measures the write path rather than a 400.
 // It is a decorator over the real service, it needs an explicit secret, and it is not registered at
@@ -73,11 +95,40 @@ builder.Services
         // silently change the meaning of stored URLs.
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
         options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+
+        // A thread is serialised as nested objects, two JSON levels per comment level (the node and
+        // its replies array). ASP.NET's default depth of 32 therefore breaks a thread only ~15
+        // levels deep with a 500, while the domain allows 64. The limit is derived from the domain's
+        // own cap so the two cannot drift apart again.
+        options.JsonSerializerOptions.MaxDepth = jsonMaxDepth;
+    })
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        // Binding errors ([Required], malformed Guid, unknown enum) are reported by ASP.NET before
+        // the pipeline runs, keyed by C# property name ("UserName"). Everything else — FluentValidation,
+        // the sanitiser — reports camelCase ("userName"), which is what the Angular form controls are
+        // called. One casing everywhere, so every error lands on the right field.
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            var errors = context.ModelState
+                .Where(entry => entry.Value is { Errors.Count: > 0 })
+                .ToDictionary(
+                    entry => System.Text.Json.JsonNamingPolicy.CamelCase.ConvertName(entry.Key),
+                    entry => entry.Value!.Errors.Select(e => e.ErrorMessage).ToArray(),
+                    StringComparer.Ordinal);
+
+            return new Microsoft.AspNetCore.Mvc.BadRequestObjectResult(
+                new Microsoft.AspNetCore.Mvc.ValidationProblemDetails(errors)
+                {
+                    Status = StatusCodes.Status400BadRequest,
+                    Title = "One or more validation errors occurred",
+                });
+        };
     });
 
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
-builder.Services.AddApiRateLimiting();
+builder.Services.AddApiRateLimiting(builder.Configuration);
 builder.Services.AddOutputCache();
 builder.Services.AddResponseCompression(options =>
 {
@@ -95,7 +146,8 @@ var signalR = builder.Services.AddSignalR(options =>
 {
     options.EnableDetailedErrors = builder.Environment.IsDevelopment();
     options.MaximumReceiveMessageSize = 32 * 1024;
-});
+})
+.AddJsonProtocol(options => options.PayloadSerializerOptions.MaxDepth = jsonMaxDepth);
 
 if (!string.IsNullOrWhiteSpace(redisConnection))
 {

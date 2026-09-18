@@ -1,7 +1,7 @@
 using Threadline.Comments.Application.Common.Abstractions;
 using Threadline.Comments.Infrastructure.Messaging.Contracts;
 using Threadline.Comments.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
+using Threadline.Comments.Infrastructure.Search;
 using Microsoft.Extensions.Logging;
 
 namespace Threadline.Comments.Infrastructure.Messaging.Consumers;
@@ -10,17 +10,25 @@ namespace Threadline.Comments.Infrastructure.Messaging.Consumers;
 /// Keeps the Elasticsearch read model and the list cache in step with SQL.
 /// </summary>
 /// <remarks>
-/// A top-level comment becomes a new document. A reply is not indexed at all — the table only ever
-/// shows top-level entries — but it does bump the denormalised counter on its thread root. That
-/// asymmetry is why the write path can stay a single insert: the expensive part of "how many
-/// replies does this thread have" is paid once here, asynchronously, instead of on every read.
+/// <para>
+/// Replies are not indexed themselves — the table only shows top-level entries — but they change
+/// their thread's reply count, so every event, root or reply, re-projects the thread root from SQL.
+/// That is what keeps the write path a single insert: the cost of "how many replies does this
+/// thread have" is paid here, asynchronously, instead of on every read or every write.
+/// </para>
+/// <para>
+/// Re-projecting rather than incrementing is deliberate. An increment is only correct if it is
+/// applied exactly once and after the root exists; with at-least-once delivery and reordered
+/// messages, neither holds — a reply saved before its root was indexed gets counted by the root's
+/// projection <em>and</em> by its own increment. A projection is simply correct whenever it runs,
+/// and the index's external versioning discards any that finish out of order.
+/// </para>
 /// </remarks>
 public sealed class CommentIndexerConsumer(
     AppDbContext context,
     IDateTimeProvider clock,
-    ICommentSearchIndex searchIndex,
+    CommentSearchProjector projector,
     ICommentCache cache,
-    IAttachmentUrlBuilder urls,
     ILogger<CommentIndexerConsumer> logger)
     : IdempotentConsumer<CommentCreatedIntegrationEvent>(context, clock, logger)
 {
@@ -30,78 +38,38 @@ public sealed class CommentIndexerConsumer(
     {
         ArgumentNullException.ThrowIfNull(message);
 
-        if (message.IsTopLevel)
-        {
-            await IndexRootAsync(message, cancellationToken);
-        }
-        else
-        {
-            await searchIndex.IncrementReplyCountAsync(message.RootId, message.CreatedAt, cancellationToken);
-        }
+        await projector.ProjectAsync(message.RootId, cancellationToken);
 
         // Both cases change what the table shows — a new row, or a changed reply count on an
         // existing one — so the cached pages are dropped either way.
         await cache.InvalidateTopLevelAsync(cancellationToken);
     }
+}
 
-    private async Task IndexRootAsync(
-        CommentCreatedIntegrationEvent message,
+/// <summary>
+/// Refreshes a thread's search document once its attachment has been processed.
+/// </summary>
+/// <remarks>
+/// The document is written when the comment is created, while the image is still being downscaled,
+/// so it records the attachment as pending. Without this consumer the table would show "обрабатывается"
+/// for that image forever, even after the thread view shows it ready.
+/// </remarks>
+public sealed class AttachmentIndexRefreshConsumer(
+    AppDbContext context,
+    IDateTimeProvider clock,
+    CommentSearchProjector projector,
+    ICommentCache cache,
+    ILogger<AttachmentIndexRefreshConsumer> logger)
+    : IdempotentConsumer<AttachmentReadyIntegrationEvent>(context, clock, logger)
+{
+    protected override async Task HandleAsync(
+        AttachmentReadyIntegrationEvent message,
         CancellationToken cancellationToken)
     {
-        var row = await Context.Comments
-            .AsNoTracking()
-            .Where(c => c.Id == message.CommentId)
-            .Select(c => new
-            {
-                c.Id,
-                c.AuthorId,
-                UserName = c.Author.UserName.Value,
-                Email = c.Author.Email.Value,
-                HomePage = c.Author.HomePage == null ? null : c.Author.HomePage.Value,
-                Html = c.Body.Html,
-                Plain = c.Body.PlainText,
-                c.CreatedAt,
-            })
-            .FirstOrDefaultAsync(cancellationToken);
+        ArgumentNullException.ThrowIfNull(message);
 
-        if (row is null)
-        {
-            // The comment was published and then removed, or the read replica has not caught up.
-            // Either way there is nothing to index and nothing to retry.
-            return;
-        }
-
-        var attachments = await Context.Attachments
-            .AsNoTracking()
-            .Where(a => a.CommentId == message.CommentId)
-            .ToListAsync(cancellationToken);
-
-        // The reply count is read from SQL rather than assumed to be zero. Messages can arrive out
-        // of order — a fast reply's event can overtake its root's — and an increment against a
-        // document that does not exist yet is dropped. Counting here makes the indexer self-healing
-        // instead of permanently off by however many replies won that race.
-        var replies = await Context.Comments
-            .AsNoTracking()
-            .Where(c => c.RootId == message.CommentId && c.ParentId != null)
-            .GroupBy(c => c.RootId)
-            .Select(g => new { Count = g.Count(), Last = (DateTimeOffset?)g.Max(c => c.CreatedAt) })
-            .FirstOrDefaultAsync(cancellationToken);
-
-        await searchIndex.IndexAsync(
-            new CommentSearchDocument
-            {
-                Id = row.Id,
-                AuthorId = row.AuthorId,
-                UserName = row.UserName,
-                Email = row.Email,
-                HomePage = row.HomePage,
-                TextHtml = row.Html,
-                TextPlain = row.Plain,
-                CreatedAt = row.CreatedAt,
-                ReplyCount = replies?.Count ?? 0,
-                LastReplyAt = replies?.Last,
-                Attachments = [.. attachments.Select(urls.ToDto)],
-            },
-            cancellationToken);
+        // A no-op for replies: the projector ignores anything that is not a thread root.
+        await projector.ProjectAsync(message.CommentId, cancellationToken);
+        await cache.InvalidateTopLevelAsync(cancellationToken);
     }
 }

@@ -8,7 +8,9 @@ WORKDIR /src
 
 # Copy only what restore needs first. This layer is then cached across every source-only change,
 # which is the difference between a 15-second rebuild and a 3-minute one.
-COPY Directory.Build.props Directory.Packages.props nuget.config* ./
+# .editorconfig carries the analyzer configuration, including the exemption for EF-generated
+# migrations. Without it the build inside the container is stricter than the one outside it.
+COPY Directory.Build.props Directory.Packages.props .editorconfig nuget.config* ./
 COPY src/Comments.Domain/Comments.Domain.csproj src/Comments.Domain/
 COPY src/Comments.Application/Comments.Application.csproj src/Comments.Application/
 COPY src/Comments.Infrastructure/Comments.Infrastructure.csproj src/Comments.Infrastructure/

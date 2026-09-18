@@ -180,7 +180,7 @@ resource elasticsearch 'Microsoft.App/containerApps@2024-03-01' = {
       containers: [
         {
           name: 'elasticsearch'
-          image: 'docker.elastic.co/elasticsearch/elasticsearch:8.15.3'
+          image: 'docker.elastic.co/elasticsearch/elasticsearch:9.1.5'
           env: [
             { name: 'discovery.type', value: 'single-node' }
             { name: 'xpack.security.enabled', value: 'false' }
@@ -417,6 +417,7 @@ resource web 'Microsoft.App/containerApps@2024-03-01' = {
           env: [
             // Empty: nginx proxies the API on the same origin, so the SPA needs no absolute URL.
             { name: 'API_BASE_URL', value: '' }
+            { name: 'API_UPSTREAM', value: 'http://${api.name}' }
           ]
           resources: {
             cpu: json('0.25')

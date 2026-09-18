@@ -24,6 +24,7 @@ builder.Services.AddMessaging(builder.Configuration, bus =>
 {
     bus.AddConsumer<CommentIndexerConsumer>();
     bus.AddConsumer<AttachmentProcessorConsumer>();
+    bus.AddConsumer<AttachmentIndexRefreshConsumer>();
 });
 
 builder.Services.AddWorkerTelemetry(builder.Configuration);

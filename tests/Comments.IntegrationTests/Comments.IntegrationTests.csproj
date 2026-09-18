@@ -10,11 +10,11 @@
   <ItemGroup>
     <PackageReference Include="coverlet.collector" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Respawn" />
     <PackageReference Include="Shouldly" />
     <PackageReference Include="Testcontainers.Azurite" />
-    <PackageReference Include="Testcontainers.Elasticsearch" />
     <PackageReference Include="Testcontainers.MsSql" />
     <PackageReference Include="Testcontainers.RabbitMq" />
     <PackageReference Include="Testcontainers.Redis" />

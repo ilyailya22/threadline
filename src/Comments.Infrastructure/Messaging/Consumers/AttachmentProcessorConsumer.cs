@@ -57,17 +57,6 @@ public sealed partial class AttachmentProcessorConsumer(
                     // A .txt needs no processing: it was validated and stored on the way in.
                     attachment.MarkTextProcessed(Clock.UtcNow);
                 }
-
-                // The worker announces that the file is ready; the API, which owns the SignalR hub
-                // connections, is what turns that into a push to the browser. Keeping the two apart
-                // is why the worker can be scaled, restarted or moved without touching the web tier.
-                await publisher.Publish(
-                    new AttachmentReadyIntegrationEvent
-                    {
-                        CommentId = message.CommentId,
-                        AttachmentId = attachment.Id,
-                    },
-                    cancellationToken);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
@@ -76,6 +65,25 @@ public sealed partial class AttachmentProcessorConsumer(
                 LogProcessingFailed(logger, attachment.Id, exception);
                 attachment.MarkFailed(exception.Message, Clock.UtcNow);
             }
+        }
+
+        // Persist the new status BEFORE announcing it. Whoever reacts to the announcement — the
+        // search-index refresh, the SignalR push — reads the attachment back from SQL; publishing
+        // first would let them read "Pending" and record it as the final state.
+        await Context.SaveChangesAsync(cancellationToken);
+
+        // The worker announces that the file is ready; the API, which owns the SignalR hub
+        // connections, turns that into a push to the browser. Keeping the two apart is why the
+        // worker can be scaled, restarted or moved without touching the web tier.
+        foreach (var attachment in attachments)
+        {
+            await publisher.Publish(
+                new AttachmentReadyIntegrationEvent
+                {
+                    CommentId = message.CommentId,
+                    AttachmentId = attachment.Id,
+                },
+                cancellationToken);
         }
     }
 

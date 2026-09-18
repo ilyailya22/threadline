@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { CommentsApi } from '../../../core/api/comments-api';
 import type {
   CommentListItem,
+  CommentPosted,
   CommentNode,
   CommentSortField,
   CommentThread,
@@ -68,6 +69,16 @@ export class CommentsPage implements OnInit {
    * cursor is how a user clicks the wrong thing. A banner offers to show them instead.
    */
   protected readonly pendingLive = signal<CommentNode[]>([]);
+
+  /** Ids this browser posted, so their SignalR echo is not offered back as "new". */
+  private readonly ownComments = new Set<string>();
+
+  /**
+   * This browser's own posts that the search index may not have caught up with yet. Every list load
+   * re-inserts the ones it does not contain, and forgets each one the moment the index returns it —
+   * so an unrelated reload in the meantime cannot make a just-posted comment vanish.
+   */
+  private readonly unconfirmedOwn = new Map<string, CommentPosted>();
 
   protected readonly liveConnected = this.realtime.connected;
 
@@ -153,16 +164,72 @@ export class CommentsPage implements OnInit {
     this.loadThread(id);
   }
 
-  protected onCommentCreated(): void {
+  protected onCommentCreated(posted: CommentPosted): void {
     this.formOpen.set(false);
+    this.ownComments.add(posted.result.id);
+    this.unconfirmedOwn.set(posted.result.id, posted);
 
     // Back to page 1 of the default sort: with LIFO ordering that is where the new comment is, and
-    // leaving the user on page 7 wondering whether it worked is the wrong outcome.
-    if (this.page() !== 1 || this.sortBy() !== 'createdAt' || this.direction() !== 'descending') {
+    // leaving the user on page 7 wondering whether it worked is the wrong outcome. The reload that
+    // navigation triggers inserts it via reconcileOwnComments.
+    if (!this.onFirstDefaultPage()) {
       this.navigate({ page: 1, sortBy: 'createdAt', direction: 'descending' });
-    } else {
-      this.load();
+      return;
     }
+
+    this.insertOptimistically(posted);
+  }
+
+  private onFirstDefaultPage(): boolean {
+    return this.page() === 1 && this.sortBy() === 'createdAt' && this.direction() === 'descending';
+  }
+
+  private reconcileOwnComments(): void {
+    const current = this.result();
+
+    if (!current || this.unconfirmedOwn.size === 0) {
+      return;
+    }
+
+    for (const [id, posted] of this.unconfirmedOwn) {
+      if (current.items.some((item) => item.id === id)) {
+        this.unconfirmedOwn.delete(id);
+      } else if (this.onFirstDefaultPage()) {
+        this.insertOptimistically(posted);
+      }
+    }
+  }
+
+  /**
+   * Shows the user's own comment at once.
+   *
+   * The list is served from a search index that the worker updates asynchronously, so re-reading it
+   * straight after posting usually returns the page without the new comment — which, to the person
+   * who just pressed "Send", looks exactly like the post failed. The server has already told us what
+   * was stored, so it is rendered from that and the next real load reconciles.
+   */
+  private insertOptimistically(posted: CommentPosted): void {
+    const current = this.result();
+
+    if (!current || current.items.some((item) => item.id === posted.result.id)) {
+      return;
+    }
+
+    const item: CommentListItem = {
+      id: posted.result.id,
+      author: { id: '', ...posted.author },
+      textHtml: posted.result.textHtml,
+      textPreview: '',
+      createdAt: posted.result.createdAt,
+      replyCount: 0,
+      attachments: [],
+    };
+
+    this.result.set({
+      ...current,
+      items: [item, ...current.items].slice(0, PAGE_SIZE),
+      totalCount: current.totalCount + 1,
+    });
   }
 
   protected onReplied(rootId: string): void {
@@ -213,6 +280,7 @@ export class CommentsPage implements OnInit {
       .subscribe({
         next: (result) => {
           this.result.set(result);
+          this.reconcileOwnComments();
           this.loading.set(false);
         },
         error: () => {
@@ -250,10 +318,8 @@ export class CommentsPage implements OnInit {
       return;
     }
 
-    const onFirstDefaultPage =
-      this.page() === 1 && this.sortBy() === 'createdAt' && this.direction() === 'descending';
-
-    if (!onFirstDefaultPage) {
+    // The socket echoes the user's own comment back too; it is already on screen, so no banner.
+    if (!this.onFirstDefaultPage() || this.ownComments.has(comment.id)) {
       return;
     }
 

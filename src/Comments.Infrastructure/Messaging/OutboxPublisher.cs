@@ -96,12 +96,32 @@ public sealed partial class OutboxPublisher(
         var bus = scope.ServiceProvider.GetRequiredService<IPublishEndpoint>();
         var clock = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
 
-        var now = clock.UtcNow;
+        // The context uses a retrying execution strategy, which refuses a user-opened transaction
+        // unless the whole unit is handed to it — so it can replay the unit, not half of it, after a
+        // transient fault. A replay may publish a message twice; consumers are idempotent for that.
+        var strategy = context.Database.CreateExecutionStrategy();
+
+        return await strategy.ExecuteAsync(
+            ct => ClaimAndPublishAsync(context, bus, clock.UtcNow, ct),
+            cancellationToken);
+    }
+
+    private async Task<int> ClaimAndPublishAsync(
+        AppDbContext context,
+        IPublishEndpoint bus,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        context.ChangeTracker.Clear();
 
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
 
         // READPAST lets sibling publishers work on disjoint rows instead of queueing behind each
         // other; UPDLOCK holds what this instance took until the transaction commits.
+        //
+        // AsTracking is essential: the context defaults to no-tracking for reads, and an untracked
+        // batch would make the SaveChanges below a no-op — every message would be published again
+        // on every pass, forever.
         var batch = await context.OutboxMessages
             .FromSql(
                 $"""
@@ -112,6 +132,7 @@ public sealed partial class OutboxPublisher(
                    AND [Attempts] < {_options.MaxAttempts}
                  ORDER BY [OccurredAt]
                  """)
+            .AsTracking()
             .ToListAsync(cancellationToken);
 
         if (batch.Count == 0)

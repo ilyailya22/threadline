@@ -5,7 +5,9 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-COPY Directory.Build.props Directory.Packages.props nuget.config* ./
+# .editorconfig carries the analyzer configuration, including the exemption for EF-generated
+# migrations. Without it the build inside the container is stricter than the one outside it.
+COPY Directory.Build.props Directory.Packages.props .editorconfig nuget.config* ./
 COPY src/Comments.Domain/Comments.Domain.csproj src/Comments.Domain/
 COPY src/Comments.Application/Comments.Application.csproj src/Comments.Application/
 COPY src/Comments.Infrastructure/Comments.Infrastructure.csproj src/Comments.Infrastructure/
@@ -19,7 +21,9 @@ RUN dotnet publish src/Comments.Worker/Comments.Worker.csproj \
     --no-restore \
     /p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/runtime:10.0 AS final
+# aspnet, not runtime: Serilog.AspNetCore and the health-check packages pull in the
+# Microsoft.AspNetCore.App shared framework, which the plain runtime image does not contain.
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 
 ENV DOTNET_gcServer=1

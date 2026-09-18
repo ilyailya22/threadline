@@ -54,6 +54,14 @@ if (options.IndexSearch)
     searchIndex = services.BuildServiceProvider().GetRequiredService<ICommentSearchIndex>();
 }
 
+// --reindex rebuilds the search index from SQL instead of generating data. It is the recovery path
+// for a lost or corrupted index, and for messages that exhausted their retries and landed in an
+// _error queue: SQL is the source of truth, so the index can always be derived from it again.
+if (configuration.GetValue("reindex", false))
+{
+    return await Reindexer.RunAsync(connectionString, configuration);
+}
+
 var seeder = new DataSeeder(connectionString, searchIndex);
 
 using var cancellation = new CancellationTokenSource();

@@ -7,6 +7,7 @@
     <PackageVersion Include="HotChocolate.Types.Analyzers" Version="16.6.6" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.CommandLine" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
@@ -38,8 +39,10 @@
     <PackageVersion Include="Elastic.Clients.Elasticsearch" Version="9.5.2" />
   </ItemGroup>
   <ItemGroup Label="Messaging">
-    <PackageVersion Include="MassTransit" Version="9.2.2" />
-    <PackageVersion Include="MassTransit.RabbitMQ" Version="9.2.2" />
+    <!-- 8.5.x is the last Apache-2.0 line; MassTransit 9 requires a commercial licence key at
+         start-up and refuses to build the bus without one. -->
+    <PackageVersion Include="MassTransit" Version="8.5.3" />
+    <PackageVersion Include="MassTransit.RabbitMQ" Version="8.5.3" />
   </ItemGroup>
   <ItemGroup Label="GraphQL">
     <PackageVersion Include="HotChocolate.AspNetCore" Version="16.6.6" />
@@ -88,7 +91,6 @@
     <PackageVersion Include="Testcontainers.MsSql" Version="4.15.0" />
     <PackageVersion Include="Testcontainers.Redis" Version="4.15.0" />
     <PackageVersion Include="Testcontainers.RabbitMq" Version="4.15.0" />
-    <PackageVersion Include="Testcontainers.Elasticsearch" Version="4.15.0" />
     <PackageVersion Include="Testcontainers.Azurite" Version="4.15.0" />
     <PackageVersion Include="NBomber" Version="6.6.0" />
     <PackageVersion Include="NBomber.Http" Version="6.2.1" />

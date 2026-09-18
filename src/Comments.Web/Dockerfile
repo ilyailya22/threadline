@@ -27,6 +27,6 @@ ENV API_BASE_URL=""
 EXPOSE 8080
 
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=5 \
-    CMD wget --quiet --spider http://localhost:8080/index.html || exit 1
+    CMD wget --quiet --spider http://127.0.0.1:8080/index.html || exit 1
 
 ENTRYPOINT ["/entrypoint.sh"]

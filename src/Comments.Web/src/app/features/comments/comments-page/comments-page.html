@@ -21,7 +21,7 @@
 
   @if (formOpen()) {
     <section class="page__form">
-      <app-comment-form (created)="onCommentCreated()" />
+      <app-comment-form (created)="onCommentCreated($event)" />
     </section>
   }
 
@@ -97,7 +97,8 @@
               <div class="comment-text table__preview" [innerHTML]="item.textHtml | sanitizedHtml"></div>
 
               @for (attachment of item.attachments; track attachment.id) {
-                <app-attachment-view [attachment]="attachment" />
+                <!-- Opening the lightbox must not also toggle the thread the row belongs to. -->
+                <app-attachment-view [attachment]="attachment" (click)="$event.stopPropagation()" />
               }
             </td>
             <td data-label="Ответов" class="table__numeric">{{ item.replyCount }}</td>
