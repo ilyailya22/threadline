@@ -2,8 +2,8 @@ using Threadline.Comments.Application.Attachments;
 using Threadline.Comments.Application.Common.Abstractions;
 using Threadline.Comments.Domain.Comments;
 using Threadline.Comments.Infrastructure.Messaging.Contracts;
-using MassTransit;
 using Threadline.Comments.Infrastructure.Persistence;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -106,12 +106,12 @@ public sealed partial class AttachmentProcessorConsumer(
 
         // Deterministic paths: reprocessing the same attachment overwrites the same blobs instead of
         // leaking a new pair every time a message is redelivered.
-        var displayPath = $"files/{attachment.Id:N}.png";
-        var thumbnailPath = $"files/{attachment.Id:N}-thumb.webp";
+        var displayPath = $"files/{attachment.Id:N}{ProcessedImageFormat.DisplayExtension}";
+        var thumbnailPath = $"files/{attachment.Id:N}-thumb{ProcessedImageFormat.ThumbnailExtension}";
 
         using (var content = new MemoryStream(processed.Content))
         {
-            await storage.SaveAsync(displayPath, content, processed.ContentType, cancellationToken);
+            await storage.SaveAsync(displayPath, content, ProcessedImageFormat.DisplayContentType, cancellationToken);
         }
 
         using (var thumbnail = new MemoryStream(processed.Thumbnail))
@@ -119,7 +119,7 @@ public sealed partial class AttachmentProcessorConsumer(
             await storage.SaveAsync(
                 thumbnailPath,
                 thumbnail,
-                processed.ThumbnailContentType,
+                ProcessedImageFormat.ThumbnailContentType,
                 cancellationToken);
         }
 
@@ -127,6 +127,7 @@ public sealed partial class AttachmentProcessorConsumer(
 
         attachment.MarkImageProcessed(
             displayPath,
+            ProcessedImageFormat.DisplayContentType,
             thumbnailPath,
             processed.Width,
             processed.Height,

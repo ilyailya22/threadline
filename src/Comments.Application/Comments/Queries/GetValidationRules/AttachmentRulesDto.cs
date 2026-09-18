@@ -1,6 +1,7 @@
-namespace Threadline.Comments.Api.Contracts;
+namespace Threadline.Comments.Application.Comments.Queries.GetValidationRules;
 
-public sealed record AttachmentRules
+/// <summary>What a file must be to be accepted as an attachment.</summary>
+public sealed record AttachmentRulesDto
 {
     public IReadOnlyList<string> ImageContentTypes { get; init; } = [];
 

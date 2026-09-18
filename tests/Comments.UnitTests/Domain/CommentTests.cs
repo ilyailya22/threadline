@@ -156,21 +156,24 @@ public sealed class AttachmentTests
         var attachment = Attachment.CreateImage("image/png", "photo.png", 4096, "originals/p.png", Now);
 
         Should.Throw<DomainException>(() =>
-            attachment.MarkImageProcessed("files/p.png", "files/p-thumb.webp", 640, 480, 2048, Now));
+            attachment.MarkImageProcessed("files/p.png", "image/png", "files/p-thumb.webp", 640, 480, 2048, Now));
     }
 
     [Fact]
     public void A_processed_image_becomes_servable()
     {
-        var attachment = Attachment.CreateImage("image/png", "photo.png", 400_000, "originals/p.png", Now);
+        var attachment = Attachment.CreateImage("image/jpeg", "photo.jpg", 400_000, "originals/p.png", Now);
 
-        attachment.MarkImageProcessed("files/p.png", "files/p-thumb.webp", 320, 240, 20_000, Now);
+        attachment.MarkImageProcessed("files/p.png", "image/png", "files/p-thumb.webp", 320, 240, 20_000, Now);
 
         attachment.Status.ShouldBe(AttachmentStatus.Ready);
         attachment.Width.ShouldBe(320);
         attachment.Height.ShouldBe(240);
         attachment.ThumbnailPath.ShouldNotBeNull();
         attachment.SizeBytes.ShouldBe(20_000);
+
+        // The stored file is the re-encoded PNG, whatever was uploaded.
+        attachment.ContentType.ShouldBe("image/png");
     }
 
     /// <summary>

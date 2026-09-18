@@ -1,7 +1,6 @@
 using Threadline.Comments.Application.Common.Abstractions;
 using Threadline.Comments.Infrastructure.Messaging.Contracts;
 using Threadline.Comments.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace Threadline.Comments.Infrastructure.Messaging.Consumers;
@@ -17,6 +16,7 @@ namespace Threadline.Comments.Infrastructure.Messaging.Consumers;
 public sealed class AttachmentReadyBroadcastConsumer(
     AppDbContext context,
     IDateTimeProvider clock,
+    IAttachmentRepository attachments,
     IAttachmentDtoMapper attachmentMapper,
     ICommentNotifier notifier,
     ILogger<AttachmentReadyBroadcastConsumer> logger)
@@ -28,9 +28,7 @@ public sealed class AttachmentReadyBroadcastConsumer(
     {
         ArgumentNullException.ThrowIfNull(message);
 
-        var attachment = await Context.Attachments
-            .AsNoTracking()
-            .FirstOrDefaultAsync(a => a.Id == message.AttachmentId, cancellationToken);
+        var attachment = await attachments.FindAsync(message.AttachmentId, cancellationToken);
 
         if (attachment is null)
         {
