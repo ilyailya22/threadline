@@ -6,14 +6,25 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EmitCompilerGeneratedFiles Condition="'$(EmitCompilerGeneratedFiles)' == ''">false</EmitCompilerGeneratedFiles>
     <WarningsNotAsErrors>CS1591</WarningsNotAsErrors>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <AnalysisLevel>latest-recommended</AnalysisLevel>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
-    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Not invariant: Microsoft.Data.SqlClient requires ICU and throws "Globalization Invariant
+         Mode is not supported" at the first connection without it. -->
+    <InvariantGlobalization>false</InvariantGlobalization>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+
+    <!--
+      Every assembly is prefixed with a vendor segment. Without it, a feature folder named
+      "Comments" inside a project named "Comments.*" produces a nested namespace that shadows the
+      root one, and `using Comments.Application...` silently resolves to the wrong thing.
+    -->
+    <RootNamespace>Threadline.$(MSBuildProjectName)</RootNamespace>
+    <AssemblyName>Threadline.$(MSBuildProjectName)</AssemblyName>
   </PropertyGroup>
 
   <PropertyGroup Label="Metadata">

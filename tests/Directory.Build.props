@@ -1,0 +1,12 @@
+<Project>
+
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!-- Test names read as sentences: Rejects_unclosed_tag. CA1707 is a public-API rule, not a test rule. -->
+    <NoWarn>$(NoWarn);CA1707;CA1861;CA5394</NoWarn>
+  </PropertyGroup>
+
+</Project>

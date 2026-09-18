@@ -1,0 +1,54 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.shell__header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 1.25rem 0 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.shell__brand {
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--accent);
+}
+
+.shell__tagline {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.shell__main {
+  flex: 1;
+  padding: 1.25rem 0 2rem;
+}
+
+.shell__footer {
+  padding: 1rem 0 1.5rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+
+  &:focus {
+    left: 1rem;
+    top: 1rem;
+    z-index: 10;
+    padding: 0.5rem 0.9rem;
+    border-radius: 0.4rem;
+    background: var(--accent);
+    color: #fff;
+  }
+}

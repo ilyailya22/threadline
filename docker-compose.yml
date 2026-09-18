@@ -1,0 +1,196 @@
+# The whole system, from nothing to working, in one command:
+#
+#     docker compose up -d --build
+#
+# Everything the application needs runs here — no manual database creation, no index setup, no
+# seeding step. The API applies its own migrations and creates the search index and blob container
+# on startup, which is what makes "clone the repo and follow the README" actually work.
+
+name: threadline-comments
+
+services:
+  # ---------------------------------------------------------------- data stores
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: tl-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-Your_strong_Passw0rd}
+      MSSQL_PID: Developer
+    ports:
+      - "${SQL_PORT:-1433}:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    healthcheck:
+      # The container is "started" long before SQL Server accepts logins; without a real query here
+      # the API would race it and fail its first migration.
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: tl-redis
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: tl-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_UI_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.1.5
+    container_name: tl-elasticsearch
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      # Single-node development cluster: 512 MB is enough for a million small documents and keeps
+      # the whole stack runnable on a laptop.
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+      cluster.routing.allocation.disk.threshold_enabled: "false"
+    ports:
+      - "${ELASTIC_PORT:-9200}:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+    restart: unless-stopped
+
+  azurite:
+    # Azure Blob Storage, locally. The application code is the real Azure SDK either way — only the
+    # connection string changes when it moves to a storage account.
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    container_name: tl-azurite
+    command: ["azurite-blob", "--blobHost", "0.0.0.0", "--skipApiVersionCheck"]
+    ports:
+      - "${AZURITE_PORT:-10000}:10000"
+    volumes:
+      - azurite-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 10000 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------- application
+
+  api:
+    build:
+      context: .
+      dockerfile: src/Comments.Api/Dockerfile
+    container_name: tl-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ConnectionStrings__SqlServer: "Server=sqlserver,1433;Database=ThreadlineComments;User Id=sa;Password=${MSSQL_SA_PASSWORD:-Your_strong_Passw0rd};TrustServerCertificate=True;Encrypt=False;Max Pool Size=200"
+      ConnectionStrings__Redis: "redis:6379"
+      ConnectionStrings__RabbitMq: "amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/"
+      Elasticsearch__Url: "http://elasticsearch:9200"
+      Storage__ConnectionString: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;"
+      Privacy__IpHashPepper: ${IP_HASH_PEPPER:-change-me-in-production-please}
+      Cors__AllowedOrigins__0: "http://localhost:${WEB_PORT:-8080}"
+      Cors__AllowedOrigins__1: "http://localhost:4200"
+      # Production values by default. A load test from a single generator is one client and would
+      # hit these immediately; raise them for throughput runs, e.g. RATE_LIMIT_READ=1000000.
+      RateLimiting__ReadPerMinute: ${RATE_LIMIT_READ:-300}
+      RateLimiting__WritePerMinute: ${RATE_LIMIT_WRITE:-10}
+      RateLimiting__CaptchaPerMinute: ${RATE_LIMIT_CAPTCHA:-30}
+      # CAPTCHA bypass for the write load test. Off unless both are set, and never registered when
+      # ASPNETCORE_ENVIRONMENT is Production (the default here) — see docs/LOAD-TESTING.md.
+      LoadTest__Enabled: ${LOADTEST_ENABLED:-false}
+      LoadTest__BypassAnswer: ${LOADTEST_BYPASS:-}
+    ports:
+      - "${API_PORT:-5080}:8080"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      azurite:
+        condition: service_started
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: src/Comments.Worker/Dockerfile
+    container_name: tl-worker
+    environment:
+      DOTNET_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ConnectionStrings__SqlServer: "Server=sqlserver,1433;Database=ThreadlineComments;User Id=sa;Password=${MSSQL_SA_PASSWORD:-Your_strong_Passw0rd};TrustServerCertificate=True;Encrypt=False;Max Pool Size=100"
+      ConnectionStrings__Redis: "redis:6379"
+      ConnectionStrings__RabbitMq: "amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/"
+      Elasticsearch__Url: "http://elasticsearch:9200"
+      Storage__ConnectionString: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;"
+      Privacy__IpHashPepper: ${IP_HASH_PEPPER:-change-me-in-production-please}
+    depends_on:
+      # The worker waits for the API because the API owns the schema migration. Two processes racing
+      # to migrate the same database is a classic way to deadlock a deployment.
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      # Scaling is a first-class operation here: `docker compose up -d --scale worker=3` works
+      # because the outbox claim query and every consumer are safe to run concurrently.
+      replicas: 1
+
+  web:
+    build:
+      context: .
+      dockerfile: src/Comments.Web/Dockerfile
+      args:
+        API_BASE_URL: ""
+    container_name: tl-web
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  sqlserver-data:
+  redis-data:
+  rabbitmq-data:
+  elasticsearch-data:
+  azurite-data:

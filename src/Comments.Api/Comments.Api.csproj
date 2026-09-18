@@ -8,13 +8,16 @@
 
   <ItemGroup>
     <PackageReference Include="AspNetCore.HealthChecks.Elasticsearch" />
-    <PackageReference Include="AspNetCore.HealthChecks.Rabbitmq" />
     <PackageReference Include="AspNetCore.HealthChecks.Redis" />
     <PackageReference Include="AspNetCore.HealthChecks.SqlServer" />
     <PackageReference Include="AspNetCore.HealthChecks.UI.Client" />
     <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" />
     <PackageReference Include="HotChocolate.AspNetCore" />
     <PackageReference Include="HotChocolate.Data" />
+    <PackageReference Include="HotChocolate.Types.Analyzers">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" />
     <PackageReference Include="Microsoft.OpenApi" />
@@ -27,6 +30,10 @@
     <PackageReference Include="Serilog.AspNetCore" />
     <PackageReference Include="Serilog.Sinks.Console" />
     <PackageReference Include="Serilog.Sinks.Seq" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Comments.Infrastructure\Comments.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

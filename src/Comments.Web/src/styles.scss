@@ -1,0 +1,153 @@
+/*
+ * Global styles. The assignment asks for "простейший дизайн с использованием CSS"; this aims at
+ * clean and readable rather than elaborate, with a design-token layer so the palette is defined
+ * once and dark mode is nine lines rather than a second stylesheet.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  --bg: #f6f8fc;
+  --surface: #ffffff;
+  --surface-muted: #f1f4f9;
+  --border: #dfe4ec;
+  --text: #1a2233;
+  --text-muted: #667085;
+  --accent: #1b3a6b;
+  --danger: #c0392b;
+  --success: #1e8e5a;
+
+  --font-sans:
+    system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', 'JetBrains Mono', Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #11151f;
+    --surface: #171c28;
+    --surface-muted: #1d2330;
+    --border: #2a3242;
+    --text: #e6eaf2;
+    --text-muted: #94a0b8;
+    --accent: #7aa7ff;
+    --danger: #ff7a6b;
+    --success: #4ad295;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.button {
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 0.45rem;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition:
+    background 130ms ease,
+    border-color 130ms ease,
+    transform 90ms ease;
+
+  &:hover:not(:disabled) {
+    border-color: var(--accent);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+}
+
+.button--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--accent) 88%, #000);
+  }
+}
+
+/*
+ * How a comment's own markup renders. Only the four tags the server allows can appear here, so
+ * this list is exhaustive by construction rather than by hope.
+ */
+.comment-text {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+
+  a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  code {
+    padding: 0.1rem 0.3rem;
+    border-radius: 0.25rem;
+    background: var(--surface-muted);
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+  }
+
+  strong {
+    font-weight: 600;
+  }
+
+  i {
+    font-style: italic;
+  }
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

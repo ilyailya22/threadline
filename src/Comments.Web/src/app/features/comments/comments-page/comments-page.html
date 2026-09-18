@@ -1,0 +1,205 @@
+<section class="page">
+  <header class="page__header">
+    <div>
+      <h1 class="page__title">Комментарии</h1>
+      <p class="page__subtitle">
+        Заглавные комментарии, по 25 на страницу. Сортировка по умолчанию — новые сверху.
+      </p>
+    </div>
+
+    <div class="page__tools">
+      <span
+        class="live"
+        [class.live--on]="liveConnected()"
+        [title]="liveConnected() ? 'Обновления в реальном времени' : 'Нет соединения'"
+      >
+        <span class="live__dot" aria-hidden="true"></span>
+        {{ liveConnected() ? 'Live' : 'Offline' }}
+      </span>
+
+      <button class="button button--primary" type="button" (click)="formOpen.set(!formOpen())">
+        {{ formOpen() ? 'Свернуть' : 'Новый комментарий' }}
+      </button>
+    </div>
+  </header>
+
+  @if (formOpen()) {
+    <section class="page__form">
+      <app-comment-form (created)="onCommentCreated($event)" />
+    </section>
+  }
+
+  @if (pendingLive().length > 0) {
+    <button type="button" class="live-banner" (click)="showPendingLive()">
+      Новых комментариев: {{ pendingLive().length }} — показать
+    </button>
+  }
+
+  @if (error(); as message) {
+    <p class="page__error" role="alert">{{ message }}</p>
+  }
+
+  <div class="table-wrapper" [class.table-wrapper--loading]="loading()">
+    <table class="table">
+      <caption class="visually-hidden">
+        Заглавные комментарии с возможностью сортировки по имени, e-mail и дате
+      </caption>
+
+      <thead>
+        <tr>
+          @for (column of columns; track column.field) {
+            <th
+              scope="col"
+              [attr.aria-sort]="
+                sortBy() === column.field
+                  ? direction() === 'ascending'
+                    ? 'ascending'
+                    : 'descending'
+                  : 'none'
+              "
+            >
+              <button type="button" class="table__sort" (click)="sort(column.field)">
+                {{ column.label }}
+                <span class="table__arrow" aria-hidden="true">
+                  @if (sortBy() === column.field) {
+                    {{ direction() === 'ascending' ? '▲' : '▼' }}
+                  } @else {
+                    ⇅
+                  }
+                </span>
+              </button>
+            </th>
+          }
+          <th scope="col">Комментарий</th>
+          <th scope="col" class="table__numeric">Ответов</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        @for (item of result()?.items ?? []; track item.id) {
+          <tr
+            class="table__row"
+            [class.table__row--open]="openThreadId() === item.id"
+            (click)="toggleThread(item.id)"
+            tabindex="0"
+            (keydown.enter)="toggleThread(item.id)"
+            (keydown.space)="toggleThread(item.id)"
+          >
+            <td data-label="User Name">
+              <span class="table__user">
+                <span class="table__avatar" aria-hidden="true">
+                  {{ item.author.userName.charAt(0).toUpperCase() }}
+                </span>
+                {{ item.author.userName }}
+              </span>
+            </td>
+            <td data-label="E-mail" class="table__email">{{ item.author.email }}</td>
+            <td data-label="Дата">
+              <time [attr.datetime]="item.createdAt">{{ item.createdAt | relativeTime }}</time>
+            </td>
+            <td data-label="Комментарий">
+              <div
+                class="comment-text table__preview"
+                [innerHTML]="item.textHtml | sanitizedHtml"
+              ></div>
+
+              @for (attachment of item.attachments; track attachment.id) {
+                <!-- Opening the lightbox must not also toggle the thread the row belongs to. -->
+                <app-attachment-view [attachment]="attachment" (click)="$event.stopPropagation()" />
+              }
+            </td>
+            <td data-label="Ответов" class="table__numeric">{{ item.replyCount }}</td>
+          </tr>
+
+          @if (openThreadId() === item.id) {
+            <tr class="table__thread-row">
+              <td [attr.colspan]="5">
+                @if (threadTree(); as tree) {
+                  <app-comment-node [comment]="tree" (replied)="onReplied($event)" />
+
+                  @if (threadCursor()) {
+                    <!-- Threads are paged: a popular one has thousands of replies. -->
+                    <button
+                      type="button"
+                      class="thread-more"
+                      [disabled]="threadLoading()"
+                      (click)="loadMoreThread()"
+                    >
+                      @if (threadLoading()) {
+                        Загрузка…
+                      } @else {
+                        Показать ещё ({{ threadRemaining() }})
+                      }
+                    </button>
+                  }
+                } @else if (threadLoading()) {
+                  <p class="table__loading">Загрузка ветки…</p>
+                } @else if (threadError()) {
+                  <p class="table__loading">Не удалось загрузить ветку.</p>
+                }
+              </td>
+            </tr>
+          }
+        } @empty {
+          <tr>
+            <td [attr.colspan]="5" class="table__empty">
+              @if (loading()) {
+                Загрузка…
+              } @else {
+                Пока нет ни одного комментария. Будьте первым.
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  @if (result(); as paged) {
+    @if (paged.totalPages > 1) {
+      <nav class="pager" aria-label="Страницы комментариев">
+        <button
+          type="button"
+          class="pager__button"
+          [disabled]="!paged.hasPrevious"
+          (click)="goToPage(paged.page - 1)"
+        >
+          ← Назад
+        </button>
+
+        @for (number of pageNumbers(); track number; let index = $index) {
+          @if (index > 0 && number - pageNumbers()[index - 1] > 1) {
+            <span class="pager__gap" aria-hidden="true">…</span>
+          }
+
+          <button
+            type="button"
+            class="pager__button"
+            [class.pager__button--active]="number === paged.page"
+            [attr.aria-current]="number === paged.page ? 'page' : null"
+            (click)="goToPage(number)"
+          >
+            {{ number }}
+          </button>
+        }
+
+        <button
+          type="button"
+          class="pager__button"
+          [disabled]="!paged.hasNext"
+          (click)="goToPage(paged.page + 1)"
+        >
+          Вперёд →
+        </button>
+      </nav>
+
+      <p class="pager__summary">
+        Всего заглавных комментариев: {{ paged.totalCount }} · страница {{ paged.page }} из
+        {{ paged.totalPages }}
+        @if (paged.totalCount > paged.totalPages * paged.pageSize) {
+          · листать можно первые {{ paged.totalPages }} страниц — дальше используйте сортировку
+        }
+      </p>
+    }
+  }
+</section>

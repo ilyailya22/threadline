@@ -1,0 +1,156 @@
+name: Deploy to Azure
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        type: choice
+        options: [dev, test, prod]
+        default: dev
+
+# Two deployments of the same environment at once is how a half-applied infrastructure change
+# happens. Queue them instead, and never cancel one mid-flight.
+concurrency:
+  group: deploy-${{ github.event.inputs.environment || 'dev' }}
+  cancel-in-progress: false
+
+permissions:
+  # OIDC federated credentials: GitHub exchanges this token for an Azure one at run time, so the
+  # repository holds no client secret and there is nothing to rotate or leak.
+  id-token: write
+  contents: read
+
+env:
+  AZURE_LOCATION: westeurope
+  APPLICATION_NAME: threadline
+
+jobs:
+  deploy:
+    name: Build, push and deploy
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sign in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # Infrastructure first: the registry has to exist before images can be pushed to it, and the
+      # container apps then simply pick up the new tag.
+      - name: Deploy infrastructure
+        id: infrastructure
+        run: |
+          set -euo pipefail
+
+          outputs=$(az deployment sub create \
+            --name "threadline-${{ github.run_number }}" \
+            --location "${{ env.AZURE_LOCATION }}" \
+            --template-file deploy/bicep/main.bicep \
+            --parameters \
+                applicationName="${{ env.APPLICATION_NAME }}" \
+                environmentName="${{ github.event.inputs.environment || 'dev' }}" \
+                location="${{ env.AZURE_LOCATION }}" \
+                sqlAdminPassword="${{ secrets.SQL_ADMIN_PASSWORD }}" \
+                ipHashPepper="${{ secrets.IP_HASH_PEPPER }}" \
+                imageTag="${{ github.sha }}" \
+            --query properties.outputs -o json)
+
+          echo "registry=$(echo "$outputs" | jq -r .registryLoginServer.value)" >> "$GITHUB_OUTPUT"
+          echo "resourceGroup=$(echo "$outputs" | jq -r .resourceGroupName.value)" >> "$GITHUB_OUTPUT"
+          echo "webUrl=$(echo "$outputs" | jq -r .webUrl.value)" >> "$GITHUB_OUTPUT"
+
+      - name: Sign in to the container registry
+        run: az acr login --name "$(echo '${{ steps.infrastructure.outputs.registry }}' | cut -d. -f1)"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build and push API
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/Comments.Api/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.infrastructure.outputs.registry }}/comments-api:${{ github.sha }}
+            ${{ steps.infrastructure.outputs.registry }}/comments-api:latest
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - name: Build and push worker
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/Comments.Worker/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.infrastructure.outputs.registry }}/comments-worker:${{ github.sha }}
+            ${{ steps.infrastructure.outputs.registry }}/comments-worker:latest
+          cache-from: type=gha,scope=worker
+          cache-to: type=gha,mode=max,scope=worker
+
+      - name: Build and push web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/Comments.Web/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.infrastructure.outputs.registry }}/comments-web:${{ github.sha }}
+            ${{ steps.infrastructure.outputs.registry }}/comments-web:latest
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+      # The first deployment creates the container apps pointing at a tag that does not exist yet,
+      # so this second pass is what actually rolls the images out.
+      - name: Roll out the new images
+        run: |
+          set -euo pipefail
+
+          for app in api worker web; do
+            az containerapp update \
+              --name "${{ env.APPLICATION_NAME }}-${{ github.event.inputs.environment || 'dev' }}-$app" \
+              --resource-group "${{ steps.infrastructure.outputs.resourceGroup }}" \
+              --image "${{ steps.infrastructure.outputs.registry }}/comments-$app:${{ github.sha }}" \
+              --output none
+          done
+
+      # A deployment that reports success while the site is down is worse than one that fails.
+      - name: Smoke test
+        run: |
+          set -euo pipefail
+
+          url="${{ steps.infrastructure.outputs.webUrl }}"
+
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error "$url/health/ready" > /dev/null; then
+              echo "Healthy after ${attempt} attempts: $url"
+              exit 0
+            fi
+
+            sleep 10
+          done
+
+          echo "::error::$url did not become healthy within five minutes"
+          exit 1
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Deployment"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Environment | ${{ github.event.inputs.environment || 'dev' }} |"
+            echo "| Image tag | \`${{ github.sha }}\` |"
+            echo "| URL | ${{ steps.infrastructure.outputs.webUrl }} |"
+          } >> "$GITHUB_STEP_SUMMARY"

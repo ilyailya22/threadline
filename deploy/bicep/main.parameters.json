@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "applicationName": { "value": "threadline" },
+    "environmentName": { "value": "dev" },
+    "location": { "value": "westeurope" },
+    "sqlAdminLogin": { "value": "tladmin" },
+
+    "//": "Secrets are NOT in this file. Pass them on the command line, or reference a Key Vault. See docs/DEPLOYMENT.md.",
+    "sqlAdminPassword": { "value": "" },
+    "ipHashPepper": { "value": "" },
+    "rabbitPassword": { "value": "" },
+
+    "imageTag": { "value": "latest" }
+  }
+}

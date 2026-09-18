@@ -45,6 +45,6 @@ Thumbs.db
 .DS_Store
 
 # Load test output
-loadtests/**/results/
+loadtests/results/nbomber/
 loadtests/**/*.html
 !loadtests/**/report-template.html

@@ -27,7 +27,7 @@
 | Relational DB | **MS SQL Server 2022** | assignment: "we prefer for .NET" |
 | Frontend | **Angular 20** (standalone, signals, zoneless) | assignment: "we prefer for .NET" |
 | Message broker | **RabbitMQ** + MassTransit | assignment: preferred option |
-| NoSQL / search | **Elasticsearch 8** | assignment: "we prefer" |
+| NoSQL / search | **Elasticsearch 9** | assignment: "we prefer" |
 | Cache | **Redis 7** (HybridCache L1+L2) | Junior+ "Cache" |
 | Graph | **GraphQL (HotChocolate 15)** | Middle "Graph" — natural fit for a comment tree |
 | WebSocket | **SignalR** + Redis backplane | Junior+ "WS" |
