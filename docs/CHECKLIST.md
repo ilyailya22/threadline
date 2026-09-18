@@ -27,9 +27,9 @@ running instance without reading any code.
 |---|---|---|---|
 | 6 | Any number of replies to any comment, cascading | [`CommentPath.cs`](../src/Comments.Domain/Comments/CommentPath.cs), [`comment-node.html`](../src/Comments.Web/src/app/features/comments/comment-node/comment-node.html) | Post a comment, reply to it, reply to the reply, and again. All four render nested. |
 | 7 | Top-level comments in a **table**, sortable by User Name, E-mail and date, **both directions** | [`comments-page.html`](../src/Comments.Web/src/app/features/comments/comments-page/comments-page.html) | Click each of the three headers. First click sorts descending, second ascending; the arrow and the URL both change. |
-| 8 | **25 messages per page** | [`Paging.DefaultPageSize`](../src/Comments.Application/Common/Models/PagedResult.cs) | With more than 25 threads, the pager appears and each page holds exactly 25 rows. |
+| 8 | **25 messages per page** | [`Paging.DefaultPageSize`](../src/Comments.Application/Common/Models/Paging.cs) | With more than 25 threads, the pager appears and each page holds exactly 25 rows. |
 | 9 | Protection against **XSS** and **SQL injection** | [SECURITY.md](SECURITY.md) | See the XSS and SQLi sections below. |
-| 10 | Default sort is **LIFO** | [`CommentSorting.cs`](../src/Comments.Application/Common/Models/CommentSorting.cs) | Load the page with no query string: newest comment is first. |
+| 10 | Default sort is **LIFO** | [`SortDirection.cs`](../src/Comments.Application/Common/Models/SortDirection.cs) | Load the page with no query string: newest comment is first. |
 | 11 | A simple CSS design | [`styles.scss`](../src/Comments.Web/src/styles.scss) | The page is styled, responsive, and follows the system light/dark preference. |
 
 ### Files

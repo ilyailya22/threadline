@@ -126,85 +126,94 @@ Each phase = one `feature/*` branch, merged into `develop` with `--no-ff`, then 
 at the end. Conventional Commits throughout — the assignment explicitly says branching will be reviewed.
 
 ### Phase 0 — Repository & tooling
-- [ ] `git init`, `.gitignore`, `.editorconfig`, `.gitattributes`, `Directory.Build.props`
+- [x] `git init`, `.gitignore`, `.editorconfig`, `.gitattributes`, `Directory.Build.props`
       (nullable, warnings-as-errors, deterministic builds), `Directory.Packages.props` (CPM)
-- [ ] `PLAN.md`, `README.md` skeleton, `docs/` tree, ADR template
-- [ ] GitHub Actions: build + test + lint on PR
+- [x] `PLAN.md`, `README.md` skeleton, `docs/` tree, ADR template
+- [x] GitHub Actions: build + test + lint on PR
 
 ### Phase 1 — Domain & persistence
-- [ ] `Domain`: `User`, `Comment`, `Attachment`, value objects (`UserName`, `Email`, `HomePage`),
+- [x] `Domain`: `User`, `Comment`, `Attachment`, value objects (`UserName`, `Email`, `HomePage`),
       domain events, no framework references
-- [ ] `Infrastructure`: EF Core `AppDbContext`, configurations, migrations, indexes, seed
-- [ ] Outbox/Inbox tables + `IUnitOfWork` writing entity + outbox atomically
-- [ ] Repository + specification for keyset pagination
-- [ ] Unit tests for domain invariants; integration tests on Testcontainers (MS SQL)
+- [x] `Infrastructure`: EF Core `AppDbContext`, configurations, migrations, indexes, seed
+- [x] Outbox/Inbox tables + `IUnitOfWork` writing entity + outbox atomically
+- [x] Repository with keyset pagination on the thread (materialised path) — _no specification pattern: one query per use case was simpler_
+- [x] Unit tests for domain invariants; integration tests on Testcontainers (MS SQL)
 
 ### Phase 2 — Application layer (CQRS)
-- [ ] MediatR pipeline: validation → logging → transaction → idempotency
-- [ ] `CreateCommentCommand`, `GetTopLevelCommentsQuery`, `GetCommentThreadQuery`,
+- [x] MediatR pipeline: logging → validation — _transaction is SaveChanges + outbox; idempotency lives in the consumers (inbox), where duplicates actually arrive_
+- [x] `CreateCommentCommand`, `GetTopLevelCommentsQuery`, `GetCommentThreadQuery`,
       `PreviewCommentQuery`, `IssueCaptchaQuery`
-- [ ] FluentValidation rules mirrored 1:1 in Angular validators (single source: the `/api/validation-rules` endpoint)
-- [ ] **HTML sanitizer**: strict allowlist `<a href title> <code> <i> <strong>`, everything else
+- [x] FluentValidation rules mirrored 1:1 in Angular validators (single source: the `/api/validation-rules` endpoint)
+- [x] **HTML sanitizer**: strict allowlist `<a href title> <code> <i> <strong>`, everything else
       escaped; XHTML well-formedness enforced by parsing the result as XML — invalid/unclosed tags
       are rejected with a field-level error, not silently fixed
-- [ ] **CAPTCHA**: server-rendered PNG (ImageSharp.Drawing), answer + attempt counter in Redis with
-      TTL, one-shot consumption, alphanumeric latin only
+- [x] **CAPTCHA**: server-rendered PNG, answer in Redis with TTL, one-shot consumption (GETDEL),
+      alphanumeric latin only — _SkiaSharp instead of ImageSharp (licence, ADR 0005); no attempt
+      counter, because one-shot already allows exactly one attempt per image_
 
 ### Phase 3 — API surface
-- [ ] REST controllers + Swagger/OpenAPI, ProblemDetails, global exception handler
-- [ ] **GraphQL** (HotChocolate): `comments(first, after, sortBy, sortDirection)` relay connection,
-      `comment(id) { replies { replies … } }` recursive tree, DataLoader batching, depth/complexity
-      limits, persisted queries
-- [ ] **SignalR** hub `/hubs/comments` + Redis backplane, groups per root comment
-- [ ] Rate limiting (fixed window per IP + token bucket per client_id), CORS, security headers, CSP
-- [ ] File upload endpoint: magic-byte sniffing (not extension), JPG/GIF/PNG ≤ 5 MB in / resized to
+- [x] REST controllers + Swagger/OpenAPI, ProblemDetails, global exception handler
+- [x] **GraphQL** (HotChocolate): `comments(page, pageSize, sortBy, direction)`, `thread(rootId, after)`,
+      `comment(id) { replies { replies … } }` recursive tree, DataLoader batching, depth/cost limits
+      — _page-based rather than a relay connection, to match the REST table; persisted queries not done_
+- [x] **SignalR** hub `/hubs/comments` + Redis backplane, groups per root comment
+- [x] Rate limiting (fixed window per IP + token bucket per client_id), CORS, security headers, CSP
+- [x] File upload endpoint: magic-byte sniffing (not extension), JPG/GIF/PNG ≤ 10 MB in / resized to
       **320×240 max, proportional**; TXT ≤ 100 KB; antivirus-style extension/MIME mismatch rejection
 
 ### Phase 4 — Async pipeline
-- [ ] MassTransit + RabbitMQ: topology, retry + exponential backoff, dead-letter queues
-- [ ] `OutboxPublisherService` (batched, `FOR UPDATE SKIP LOCKED` equivalent via `UPDLOCK, READPAST`)
-- [ ] Consumers: `CommentIndexer` (→ Elasticsearch), `AttachmentProcessor` (→ resize, → Blob),
+- [x] MassTransit + RabbitMQ: topology, retry + exponential backoff, dead-letter queues
+- [x] `OutboxPublisherService` (batched, `FOR UPDATE SKIP LOCKED` equivalent via `UPDLOCK, READPAST`)
+- [x] Consumers: `CommentIndexer` (→ Elasticsearch), `AttachmentProcessor` (→ resize, → Blob),
       `CommentBroadcaster` (→ SignalR), all idempotent via Inbox
-- [ ] Elasticsearch index template, analyzers, alias-based zero-downtime reindex, bulk indexing
-- [ ] Redis `HybridCache` for list pages; event-driven invalidation
+- [x] Elasticsearch index definition with normalisers, alias, bulk indexing with external versioning,
+      full rebuild from SQL (`Seeder --reindex`)
+- [x] Redis `HybridCache` for list pages; event-driven invalidation
 
 ### Phase 5 — Angular SPA
-- [ ] Angular 20 standalone + signals + zoneless, strict TS, ESLint + Prettier
-- [ ] Comments **table** with sorting by User Name / E-mail / date, asc+desc, **25 per page**,
-      default **LIFO**, URL-synced state, keyset pagination under the hood
-- [ ] Cascading reply tree (virtualized at depth), lazy-loaded subtrees via GraphQL
-- [ ] Add/reply form: Reactive Forms, live client validation, CAPTCHA image + refresh,
+- [x] Angular 22 standalone + signals + zoneless, strict TS, ESLint + Prettier
+- [x] Comments **table** with sorting by User Name / E-mail / date, asc+desc, **25 per page**,
+      default **LIFO**, URL-synced state — _offset paging capped at 10 000 rows (exact totals shown);
+      keyset paging is used for threads, where depth makes it matter_
+- [x] Cascading reply tree, loaded in keyset pages over REST and assembled on the client — _not
+      virtualised; GraphQL offers the same tree for other clients_
+- [x] Add/reply form: Reactive Forms, live client validation, CAPTCHA image + refresh,
       **preview without reload**, tag toolbar `[i] [strong] [code] [a]`, character counter
-- [ ] File upload with drag&drop, client-side dimension check + preview, progress
-- [ ] **Lightbox** for images and text files, with animations (own component, no jQuery)
-- [ ] SignalR live insert of new comments with a subtle highlight animation
-- [ ] Simple, clean CSS design (assignment asks for it), responsive, dark mode, a11y
+- [x] File upload with client-side type/size/dimension check and preview
+- [ ] Drag & drop and an upload progress bar — _not done_
+- [x] **Lightbox** for images and text files, with animations (own component, no jQuery)
+- [x] SignalR live insert of new comments with a subtle highlight animation
+- [x] Simple, clean CSS design (assignment asks for it), responsive, dark mode, a11y
 
 ### Phase 6 — Middle+ : scale & load testing
-- [ ] `tools/Seeder`: generates 1,000,000 comments / 100,000 users into SQL + ES (bulk, batched)
-- [ ] `loadtests/k6`: scenarios — read-heavy browse (95%), write (5%), spike, soak
-- [ ] `tests/LoadTests` (NBomber) for an in-solution, CI-runnable variant
-- [ ] Documented SLOs and measured results: `docs/LOAD-TESTING.md`
-- [ ] Scaling notes: stateless API, KEDA rules (HTTP concurrency + RabbitMQ queue depth),
+- [x] `tools/Seeder`: generates 1,000,000 comments / 100,000 users into SQL + ES (bulk, batched)
+- [x] `loadtests/k6`: scenarios — read-heavy browse, write, spike
+- [ ] k6 soak (multi-hour) scenario — _not done_
+- [x] `tests/LoadTests` (NBomber) for an in-solution, CI-runnable variant
+- [x] Documented SLOs and measured results: `docs/LOAD-TESTING.md`
+- [x] Scaling notes: stateless API, KEDA rules (HTTP concurrency + RabbitMQ queue depth),
       connection pooling, read replicas, ES sharding, partitioning strategy for `Comment`
 
 ### Phase 7 — Cloud & delivery
-- [ ] Multi-stage Dockerfiles (API, Worker, Angular/nginx), non-root, healthchecks, `.dockerignore`
-- [ ] `docker-compose.yml` (full stack, one command) + `docker-compose.override.yml` (dev)
-- [ ] Bicep: Container Apps Env, ACR, Azure SQL, Storage, Key Vault, Log Analytics, App Insights,
+- [x] Multi-stage Dockerfiles (API, Worker, Angular/nginx), non-root, healthchecks, `.dockerignore`
+- [x] `docker-compose.yml` (full stack, one command) — _no separate dev override; the API and SPA run
+      locally with `dotnet run` / `ng serve` against the compose infrastructure_
+- [x] Bicep: Container Apps Env, ACR, Azure SQL, Storage, Key Vault, Log Analytics, App Insights,
       RabbitMQ + Elasticsearch + Redis as container apps, managed identity everywhere
-- [ ] GitHub Actions: build → test → scan → push to ACR → deploy (OIDC federated credentials)
-- [ ] `docs/DEPLOYMENT.md` — exact commands for the Free Trial path, plus teardown & cost table
+- [x] GitHub Actions: build → style → test → push to ACR → deploy (OIDC federated credentials) —
+      _dependency scanning is NuGet audit failing the build; no container image scan_
+- [ ] Actual deployment to Azure — _pending an Azure subscription; see docs/DEPLOYMENT.md_
+- [x] `docs/DEPLOYMENT.md` — exact commands for the Free Trial path, plus teardown & cost table
 
 ### Phase 8 — Documentation & submission
-- [ ] `README.md` — what it is, feature list mapped to every assignment bullet, screenshots,
-      one-command quick start, verified from a clean clone
-- [ ] `docs/ARCHITECTURE.md`, `docs/API.md`, `docs/SECURITY.md`, `docs/TESTING.md`, ADRs
-- [ ] `db/schema.mysql.sql` + instructions for opening it in MySQL Workbench
-- [ ] `docs/CHECKLIST.md` — every assignment requirement → where it is implemented → how to verify
+- [x] `README.md` — what it is, feature list mapped to every assignment bullet, one-command quick start
+- [ ] Screenshots in the README, and a run-through from a fresh clone — _not done_
+- [x] `docs/ARCHITECTURE.md`, `docs/API.md`, `docs/SECURITY.md`, `docs/TESTING.md`, ADRs
+- [x] `db/schema.mysql.sql` + instructions for opening it in MySQL Workbench
+- [x] `docs/CHECKLIST.md` — every assignment requirement → where it is implemented → how to verify
       (this is what their QA will use)
-- [ ] Demo video script: `docs/DEMO-SCRIPT.md`
-- [ ] Self-check: fresh clone → follow README → everything runs
+- [x] Demo video script: `docs/DEMO-SCRIPT.md`
+- [ ] Record the demo video — _for the author to record_
 
 ---
 

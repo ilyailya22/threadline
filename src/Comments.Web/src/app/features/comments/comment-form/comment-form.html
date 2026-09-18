@@ -90,7 +90,9 @@
           теги должны быть закрыты.
         </span>
       }
-      <span class="field__counter">{{ form.controls.text.value.length }} / 20000</span>
+      <span class="field__counter"
+        >{{ form.controls.text.value.length }} / {{ rules()?.text?.maxLength }}</span
+      >
     </div>
   </div>
 
