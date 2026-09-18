@@ -1,6 +1,7 @@
-namespace Threadline.Comments.Api.Contracts;
+namespace Threadline.Comments.Application.Comments.Queries.GetValidationRules;
 
-public sealed record FieldRules
+/// <summary>Constraints on one form field, in a form the client can turn into validators.</summary>
+public sealed record FieldRulesDto
 {
     public bool Required { get; init; }
 

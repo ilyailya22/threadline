@@ -394,6 +394,7 @@ so what the IDE highlights and what the build accepts are the same thing.
 | Files | One top-level type per file, file named after the type |
 | Naming | `_camelCase` private instance fields; `PascalCase` constants and `static readonly` fields; `Async` suffix on awaitables |
 | Commands and queries | `XxxCommand`/`XxxQuery` and `XxxHandler` in separate files, one folder per use case |
+| Controllers | HTTP only — route, binding, status code, headers, rate limit. Each action sends one MediatR request; no repository, `DbContext` or business rule in a controller |
 | Abstractions | Ports live in `Application/Common/Abstractions`, one interface per file, only the members a caller uses |
 | Registration | One `AddXxx` extension per layer (`AddApplication`, `AddInfrastructure`) and per concern in the API |
 | Limits and patterns | Defined once — in the domain (`UserName.Pattern`, `CommentBody.MaxHtmlLength`) or next to the feature (`CaptchaAnswerFormat`) — and referenced by the validator, the request model and the rules the client downloads |

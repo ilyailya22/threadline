@@ -1,4 +1,4 @@
-namespace Threadline.Comments.Infrastructure.Common;
+namespace Threadline.Comments.Application.Common.Abstractions;
 
 /// <summary>
 /// Turns a client IP into a stable, non-reversible identifier.

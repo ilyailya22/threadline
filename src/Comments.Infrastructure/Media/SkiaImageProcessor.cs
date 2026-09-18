@@ -75,17 +75,10 @@ public sealed class SkiaImageProcessor : IImageProcessor
         var (thumbWidth, thumbHeight) = Fit(width, height, ThumbnailWidth, ThumbnailHeight);
         using var thumbnail = Resize(resized, thumbWidth, thumbHeight);
 
-        // WebP for the thumbnail: it is the asset repeated on every row of the page, so the ~30%
-        // saving over PNG is the single biggest win available on page weight.
         var thumbnailBytes = Encode(thumbnail, SKEncodedImageFormat.Webp, 80);
 
-        return new ProcessedImage(
-            content,
-            "image/png",
-            width,
-            height,
-            thumbnailBytes,
-            "image/webp");
+        // Encoded as ProcessedImageFormat promises: PNG for display, WebP for the thumbnail.
+        return new ProcessedImage(content, width, height, thumbnailBytes);
     }
 
     /// <summary>
