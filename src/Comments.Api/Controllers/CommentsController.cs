@@ -42,17 +42,23 @@ public sealed class CommentsController(ISender sender) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Loads a whole thread, nested, for cascading display.</summary>
+    /// <summary>
+    /// One page of a thread, depth-first. Follow <c>nextCursor</c> with <c>after</c> for more.
+    /// </summary>
     [HttpGet("{rootId:guid}/thread")]
     [EnableRateLimiting(RateLimitPolicies.Read)]
     [ProducesResponseType<CommentThreadDto>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CommentThreadDto>> GetThread(
         Guid rootId,
-        [FromQuery] int maxDepth = 10,
+        [FromQuery] int maxDepth = Domain.Comments.CommentPath.MaxDepth,
+        [FromQuery] int limit = GetCommentThreadQuery.DefaultLimit,
+        [FromQuery] string? after = null,
         CancellationToken cancellationToken = default)
     {
-        var thread = await sender.Send(new GetCommentThreadQuery(rootId, maxDepth), cancellationToken);
+        var thread = await sender.Send(
+            new GetCommentThreadQuery(rootId, maxDepth, limit, after),
+            cancellationToken);
 
         return Ok(thread);
     }

@@ -68,10 +68,18 @@ export class CommentsApi {
     return this.http.get<PagedResult<CommentListItem>>(`${this.baseUrl}/api/comments`, { params });
   }
 
-  getThread(rootId: string, maxDepth = 10): Observable<CommentThread> {
-    return this.http.get<CommentThread>(`${this.baseUrl}/api/comments/${rootId}/thread`, {
-      params: new HttpParams().set('maxDepth', maxDepth),
-    });
+  /**
+   * One page of a thread. Threads are unbounded — a popular one can have thousands of replies — so
+   * the server pages them on the materialised path and the client follows `nextCursor`.
+   */
+  getThread(rootId: string, after?: string | null, limit = 100): Observable<CommentThread> {
+    let params = new HttpParams().set('limit', limit);
+
+    if (after) {
+      params = params.set('after', after);
+    }
+
+    return this.http.get<CommentThread>(`${this.baseUrl}/api/comments/${rootId}/thread`, { params });
   }
 
   /**

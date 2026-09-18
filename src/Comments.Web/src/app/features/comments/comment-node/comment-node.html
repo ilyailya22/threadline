@@ -32,7 +32,7 @@
 
   @if (replying()) {
     <div class="node__form">
-      <app-comment-form [parentId]="item.id" (created)="onReplied(item.rootId)" (cancelled)="toggleReply()" />
+      <app-comment-form [parentId]="item.id" (created)="onReplied($event)" (cancelled)="toggleReply()" />
     </div>
   }
 

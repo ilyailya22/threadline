@@ -39,30 +39,18 @@ AnsiConsole.MarkupLine($"Top-level   : [yellow]{options.TopLevelRatio:P0}[/] (â‰
 AnsiConsole.MarkupLine($"Search index: [yellow]{(options.IndexSearch ? "yes" : "no")}[/]");
 AnsiConsole.WriteLine();
 
-ICommentSearchIndex? searchIndex = null;
-
-if (options.IndexSearch)
-{
-    var services = new ServiceCollection();
-
-    services.AddLogging(logging => logging.AddSimpleConsole().SetMinimumLevel(LogLevel.Warning));
-    services.AddSingleton<IConfiguration>(configuration);
-    services.Configure<Threadline.Comments.Infrastructure.Search.ElasticsearchOptions>(
-        configuration.GetSection(Threadline.Comments.Infrastructure.Search.ElasticsearchOptions.SectionName));
-    services.AddSearch();
-
-    searchIndex = services.BuildServiceProvider().GetRequiredService<ICommentSearchIndex>();
-}
-
 // --reindex rebuilds the search index from SQL instead of generating data. It is the recovery path
 // for a lost or corrupted index, and for messages that exhausted their retries and landed in an
 // _error queue: SQL is the source of truth, so the index can always be derived from it again.
 if (configuration.GetValue("reindex", false))
 {
-    return await Reindexer.RunAsync(connectionString, configuration);
+    return await Reindexer.RunAsync(
+        connectionString,
+        configuration,
+        recreate: configuration.GetValue("recreate", false));
 }
 
-var seeder = new DataSeeder(connectionString, searchIndex);
+var seeder = new DataSeeder(connectionString);
 
 using var cancellation = new CancellationTokenSource();
 
@@ -75,7 +63,13 @@ Console.CancelKeyPress += (_, eventArgs) =>
 try
 {
     await seeder.RunAsync(options, cancellation.Token);
-    return 0;
+
+    // The search index is built by the same projector the live pipeline uses, so seeded documents
+    // carry real text and true reply counts â€” a benchmark against placeholder documents would
+    // measure a different index from the one production serves.
+    return options.IndexSearch
+        ? await Reindexer.RunAsync(connectionString, configuration, recreate: options.Truncate)
+        : 0;
 }
 catch (OperationCanceledException)
 {

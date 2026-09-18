@@ -8,13 +8,13 @@ import type {
   CommentPosted,
   CommentNode,
   CommentSortField,
-  CommentThread,
   PagedResult,
   SortDirection,
 } from '../../../core/api/models';
 import { CommentsRealtime } from '../../../core/realtime/comments-realtime';
 import { RelativeTimePipe } from '../../../shared/relative-time.pipe';
 import { SanitizedHtmlPipe } from '../../../shared/sanitized-html.pipe';
+import { buildThreadTree, mergeNodes } from '../../../shared/thread-tree';
 import { AttachmentView } from '../attachment-view/attachment-view';
 import { CommentForm } from '../comment-form/comment-form';
 import { CommentNodeComponent } from '../comment-node/comment-node';
@@ -57,10 +57,27 @@ export class CommentsPage implements OnInit {
   protected readonly error = signal<string | null>(null);
   protected readonly formOpen = signal(false);
 
-  /** Id of the thread currently expanded inline, and its loaded contents. */
+  /**
+   * The thread expanded inline. Held as the flat list of every node loaded so far — first page,
+   * further pages, and live additions — and turned into a tree on demand, so appending never
+   * requires re-fetching what is already on screen.
+   */
   protected readonly openThreadId = signal<string | null>(null);
-  protected readonly thread = signal<CommentThread | null>(null);
+  protected readonly threadNodes = signal<CommentNode[]>([]);
+  protected readonly threadTotal = signal(0);
+  protected readonly threadCursor = signal<string | null>(null);
   protected readonly threadLoading = signal(false);
+  protected readonly threadError = signal(false);
+
+  protected readonly threadTree = computed(() => {
+    const rootId = this.openThreadId();
+
+    return rootId ? buildThreadTree(this.threadNodes(), rootId) : null;
+  });
+
+  protected readonly threadRemaining = computed(() =>
+    Math.max(0, this.threadTotal() - this.threadNodes().length),
+  );
 
   /**
    * Comments that arrived over the socket while the user was looking at page 1.
@@ -121,14 +138,22 @@ export class CommentsPage implements OnInit {
       this.onLiveComment(comment);
     });
 
-    this.realtime.attachmentReady.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
-      // An attachment finished processing. Reloading whatever is on screen is cheap and is the
-      // simplest way to swap the "обрабатывается" placeholder for the real thumbnail.
+    this.realtime.attachmentReady.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((event) => {
+      // Swap the "обрабатывается" placeholder for the real file in place. The table is reloaded (it is
+      // one cached request); the open thread is patched rather than re-fetched, so pages the reader
+      // has already expanded are not thrown away.
       this.load();
 
-      if (this.openThreadId()) {
-        this.loadThread(this.openThreadId()!);
-      }
+      this.threadNodes.update((nodes) =>
+        nodes.map((node) =>
+          node.id === event.commentId
+            ? {
+                ...node,
+                attachments: node.attachments.map((a) => (a.id === event.attachment.id ? event.attachment : a)),
+              }
+            : node,
+        ),
+      );
     });
   }
 
@@ -149,7 +174,7 @@ export class CommentsPage implements OnInit {
     if (this.openThreadId() === id) {
       void this.realtime.unwatchThread(id);
       this.openThreadId.set(null);
-      this.thread.set(null);
+      this.threadNodes.set([]);
       return;
     }
 
@@ -232,8 +257,16 @@ export class CommentsPage implements OnInit {
     });
   }
 
-  protected onReplied(rootId: string): void {
-    this.loadThread(rootId);
+  /** Shows the user's own reply at once, the same way the table shows their own top-level comment. */
+  protected onReplied(posted: CommentPosted): void {
+    this.ownComments.add(posted.result.id);
+
+    if (this.openThreadId() === posted.result.rootId) {
+      this.threadNodes.update((nodes) => mergeNodes(nodes, [toNode(posted, nodes)]));
+      this.threadTotal.update((total) => total + 1);
+    }
+
+    // The reply count in the table changes too.
     this.load();
   }
 
@@ -290,19 +323,44 @@ export class CommentsPage implements OnInit {
       });
   }
 
+  /** Loads the first page of a thread, replacing whatever thread was open. */
   private loadThread(rootId: string): void {
+    this.threadNodes.set([]);
+    this.threadCursor.set(null);
+    this.fetchThreadPage(rootId, null);
+  }
+
+  /** Appends the next page of the open thread. */
+  protected loadMoreThread(): void {
+    const rootId = this.openThreadId();
+    const cursor = this.threadCursor();
+
+    if (rootId && cursor && !this.threadLoading()) {
+      this.fetchThreadPage(rootId, cursor);
+    }
+  }
+
+  private fetchThreadPage(rootId: string, after: string | null): void {
     this.threadLoading.set(true);
+    this.threadError.set(false);
 
     this.api
-      .getThread(rootId)
+      .getThread(rootId, after)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: (thread) => {
-          this.thread.set(thread);
+        next: (page) => {
+          // The reader may have opened a different thread while this page was in flight.
+          if (this.openThreadId() !== rootId) {
+            return;
+          }
+
+          this.threadNodes.update((nodes) => mergeNodes(nodes, page.nodes));
+          this.threadTotal.set(page.totalCount);
+          this.threadCursor.set(page.nextCursor ?? null);
           this.threadLoading.set(false);
         },
         error: () => {
-          this.thread.set(null);
+          this.threadError.set(true);
           this.threadLoading.set(false);
         },
       });
@@ -310,9 +368,17 @@ export class CommentsPage implements OnInit {
 
   private onLiveComment(comment: CommentNode): void {
     if (comment.parentId) {
-      // A reply: only interesting if its thread is open on screen.
+      // A reply: only interesting if its thread is open on screen. Added in place rather than by
+      // re-fetching, so the pages the reader has expanded stay put; a reply whose parent has not
+      // been loaded yet is kept too, and attaches itself when that page arrives.
       if (this.openThreadId() === comment.rootId) {
-        this.loadThread(comment.rootId);
+        const isNew = !this.threadNodes().some((node) => node.id === comment.id);
+
+        this.threadNodes.update((nodes) => mergeNodes(nodes, [comment]));
+
+        if (isNew) {
+          this.threadTotal.update((total) => total + 1);
+        }
       }
 
       return;
@@ -327,4 +393,21 @@ export class CommentsPage implements OnInit {
       pending.some((item) => item.id === comment.id) ? pending : [comment, ...pending],
     );
   }
+}
+
+/** The node the server would have returned for a reply the user has just posted. */
+function toNode(posted: CommentPosted, existing: readonly CommentNode[]): CommentNode {
+  const parent = existing.find((node) => node.id === posted.result.parentId);
+
+  return {
+    id: posted.result.id,
+    parentId: posted.result.parentId ?? null,
+    rootId: posted.result.rootId,
+    depth: (parent?.depth ?? 0) + 1,
+    author: { id: '', ...posted.author },
+    textHtml: posted.result.textHtml,
+    createdAt: posted.result.createdAt,
+    attachments: [],
+    replies: [],
+  };
 }

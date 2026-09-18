@@ -83,14 +83,36 @@ public sealed class CommentReadRepository(AppDbContext context, IAttachmentUrlBu
     public async Task<CommentThreadDto?> GetThreadAsync(
         Guid rootId,
         int maxDepth,
+        int limit,
+        string? afterPath,
         CancellationToken cancellationToken = default)
     {
-        // One indexed range scan returns the whole subtree, already ordered depth-first because
-        // the materialised path sorts that way. The nesting is then assembled in memory in O(n).
-        var rows = await context.Comments
+        var thread = context.Comments
             .AsNoTracking()
-            .Where(c => c.RootId == rootId && c.Depth <= maxDepth)
+            .Where(c => c.RootId == rootId && c.Depth <= maxDepth);
+
+        // Keyset on the materialised path: "everything after the last node you saw", served by the
+        // same (RootId, Path) index range scan as the first page. Offset paging would make page 100
+        // of a large thread scan and discard 99 pages of rows; this costs the same on every page.
+        //
+        // The comparison is written as parameterised SQL rather than LINQ: Path is a value object with
+        // a converter, and EF cannot translate an ordering comparison on it. FromSql composes with the
+        // LINQ below, and every value is a parameter, never text. The collation orders the path's hex
+        // characters exactly as ordinal comparison does, which keeps pages in depth-first order.
+        var page = afterPath is null
+            ? thread
+            : context.Comments
+                .FromSql(
+                    $"""
+                     SELECT * FROM [Comments]
+                     WHERE [RootId] = {rootId} AND [Depth] <= {maxDepth} AND [Path] > {afterPath}
+                     """)
+                .AsNoTracking();
+
+        // One row more than asked for tells us whether there is a next page without a second query.
+        var rows = await page
             .OrderBy(c => c.Path)
+            .Take(limit + 1)
             .Select(c => new NodeRow(
                 c.Id,
                 c.ParentId,
@@ -101,19 +123,30 @@ public sealed class CommentReadRepository(AppDbContext context, IAttachmentUrlBu
                 c.Author.Email.Value,
                 c.Author.HomePage == null ? null : c.Author.HomePage.Value,
                 c.Body.Html,
-                c.CreatedAt))
+                c.CreatedAt,
+                c.Path.Value))
             .ToListAsync(cancellationToken);
 
-        if (rows.Count == 0)
+        if (rows.Count == 0 && afterPath is null)
         {
             return null;
         }
 
+        var hasMore = rows.Count > limit;
+
+        if (hasMore)
+        {
+            rows.RemoveAt(rows.Count - 1);
+        }
+
+        var total = await thread.CountAsync(cancellationToken);
         var attachments = await LoadAttachmentsAsync(rows.ConvertAll(r => r.Id), cancellationToken);
 
-        var root = BuildTree(rows, attachments, rootId);
-
-        return root is null ? null : new CommentThreadDto(root, rows.Count);
+        return new CommentThreadDto(
+            rootId,
+            total,
+            rows.ConvertAll(r => ToNode(r, attachments)),
+            hasMore ? rows[^1].Path : null);
     }
 
     public async Task<IReadOnlyList<CommentNodeDto>> GetRepliesAsync(
@@ -241,7 +274,7 @@ public sealed class CommentReadRepository(AppDbContext context, IAttachmentUrlBu
 
     private static CommentNodeDto ToNode(
         NodeRow row,
-        IReadOnlyDictionary<Guid, IReadOnlyList<AttachmentDto>> attachments) =>
+        Dictionary<Guid, IReadOnlyList<AttachmentDto>> attachments) =>
         new(
             row.Id,
             row.ParentId,
@@ -251,41 +284,6 @@ public sealed class CommentReadRepository(AppDbContext context, IAttachmentUrlBu
             row.TextHtml,
             row.CreatedAt,
             attachments.TryGetValue(row.Id, out var files) ? files : []);
-
-    private CommentNodeDto? BuildTree(
-        List<NodeRow> rows,
-        IReadOnlyDictionary<Guid, IReadOnlyList<AttachmentDto>> attachments,
-        Guid rootId)
-    {
-        var childrenByParent = new Dictionary<Guid, List<NodeRow>>();
-
-        foreach (var row in rows)
-        {
-            if (row.ParentId is { } parentId)
-            {
-                if (!childrenByParent.TryGetValue(parentId, out var siblings))
-                {
-                    siblings = [];
-                    childrenByParent[parentId] = siblings;
-                }
-
-                siblings.Add(row);
-            }
-        }
-
-        var rootRow = rows.Find(r => r.Id == rootId);
-
-        return rootRow is null ? null : Build(rootRow);
-
-        CommentNodeDto Build(NodeRow row)
-        {
-            var node = ToNode(row, attachments);
-
-            return childrenByParent.TryGetValue(row.Id, out var children)
-                ? node with { Replies = children.ConvertAll(Build) }
-                : node;
-        }
-    }
 
     private static string Preview(string plainText) =>
         plainText.Length <= 200 ? plainText : plainText[..200] + "…";
@@ -310,5 +308,6 @@ public sealed class CommentReadRepository(AppDbContext context, IAttachmentUrlBu
         string Email,
         string? HomePage,
         string TextHtml,
-        DateTimeOffset CreatedAt);
+        DateTimeOffset CreatedAt,
+        string Path = "");
 }

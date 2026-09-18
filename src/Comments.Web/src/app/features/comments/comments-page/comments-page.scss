@@ -318,3 +318,24 @@
     animation: none;
   }
 }
+
+.thread-more {
+  display: block;
+  margin: 0.75rem auto 0;
+  padding: 0.4rem 1rem;
+  border: 1px dashed var(--accent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.82rem;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+}

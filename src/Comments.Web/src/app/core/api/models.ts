@@ -54,9 +54,13 @@ export interface CommentNode {
   readonly replies: readonly CommentNode[];
 }
 
+/** One page of a thread: a flat, depth-first list the client assembles into a tree. */
 export interface CommentThread {
-  readonly root: CommentNode;
+  readonly rootId: string;
   readonly totalCount: number;
+  readonly nodes: readonly CommentNode[];
+  readonly nextCursor?: string | null;
+  readonly hasMore: boolean;
 }
 
 export interface PagedResult<T> {

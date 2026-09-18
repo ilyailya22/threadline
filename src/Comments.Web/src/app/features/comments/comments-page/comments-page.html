@@ -107,12 +107,28 @@
           @if (openThreadId() === item.id) {
             <tr class="table__thread-row">
               <td [attr.colspan]="5">
-                @if (threadLoading()) {
+                @if (threadTree(); as tree) {
+                  <app-comment-node [comment]="tree" (replied)="onReplied($event)" />
+
+                  @if (threadCursor()) {
+                    <!-- Threads are paged: a popular one has thousands of replies. -->
+                    <button
+                      type="button"
+                      class="thread-more"
+                      [disabled]="threadLoading()"
+                      (click)="loadMoreThread()"
+                    >
+                      @if (threadLoading()) {
+                        Загрузка…
+                      } @else {
+                        Показать ещё ({{ threadRemaining() }})
+                      }
+                    </button>
+                  }
+                } @else if (threadLoading()) {
                   <p class="table__loading">Загрузка ветки…</p>
-                } @else if (thread(); as loaded) {
-                  <app-comment-node [comment]="loaded.root" (replied)="onReplied($event)" />
-                } @else {
-                  <p class="table__loading">Ветка недоступна.</p>
+                } @else if (threadError()) {
+                  <p class="table__loading">Не удалось загрузить ветку.</p>
                 }
               </td>
             </tr>

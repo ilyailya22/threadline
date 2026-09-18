@@ -48,13 +48,15 @@ public static class CommentQueries
         CancellationToken cancellationToken) =>
         await repository.GetByIdAsync(id, cancellationToken);
 
-    /// <summary>A whole thread, eagerly nested to <paramref name="maxDepth"/>.</summary>
+    /// <summary>One page of a thread, depth-first; continue with <c>after: nextCursor</c>.</summary>
     public static async Task<CommentThreadDto> GetThread(
         Guid rootId,
-        int maxDepth,
+        string? after,
         ISender sender,
-        CancellationToken cancellationToken) =>
-        await sender.Send(new GetCommentThreadQuery(rootId, maxDepth), cancellationToken);
+        CancellationToken cancellationToken,
+        int maxDepth = Domain.Comments.CommentPath.MaxDepth,
+        int limit = GetCommentThreadQuery.DefaultLimit) =>
+        await sender.Send(new GetCommentThreadQuery(rootId, maxDepth, limit, after), cancellationToken);
 }
 
 /// <summary>Resolves the <c>replies</c> field of a comment, batched.</summary>

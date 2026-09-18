@@ -23,7 +23,10 @@ internal static class Reindexer
 {
     private const int BatchSize = 2_000;
 
-    public static async Task<int> RunAsync(string connectionString, IConfiguration configuration)
+    public static async Task<int> RunAsync(
+        string connectionString,
+        IConfiguration configuration,
+        bool recreate = false)
     {
         var services = new ServiceCollection();
 
@@ -43,6 +46,18 @@ internal static class Reindexer
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var index = scope.ServiceProvider.GetRequiredService<ICommentSearchIndex>();
         var projector = scope.ServiceProvider.GetRequiredService<CommentSearchProjector>();
+
+        if (recreate)
+        {
+            // Dropped and rebuilt rather than cleared: a truncated SQL database must not leave
+            // documents behind that no longer have a row.
+            var elastic = scope.ServiceProvider.GetRequiredService<Elastic.Clients.Elasticsearch.ElasticsearchClient>();
+            var indexName = configuration.GetValue("Elasticsearch:IndexName", "comments-v1");
+
+            await elastic.Indices.DeleteAsync(indexName);
+
+            AnsiConsole.MarkupLine($"Dropped index [yellow]{indexName}[/].");
+        }
 
         await index.EnsureCreatedAsync();
 

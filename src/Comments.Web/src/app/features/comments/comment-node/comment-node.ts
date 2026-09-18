@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
 
-import type { CommentNode } from '../../../core/api/models';
+import type { CommentNode, CommentPosted } from '../../../core/api/models';
 import { RelativeTimePipe } from '../../../shared/relative-time.pipe';
 import { SanitizedHtmlPipe } from '../../../shared/sanitized-html.pipe';
 import { AttachmentView } from '../attachment-view/attachment-view';
@@ -23,8 +23,8 @@ import { CommentForm } from '../comment-form/comment-form';
 export class CommentNodeComponent {
   readonly comment = input.required<CommentNode>();
 
-  /** Raised when a reply is posted anywhere in this subtree, so the page can reload the thread. */
-  readonly replied = output<string>();
+  /** Raised when a reply is posted anywhere in this subtree, so the page can show it at once. */
+  readonly replied = output<CommentPosted>();
 
   protected readonly replying = signal(false);
 
@@ -32,8 +32,8 @@ export class CommentNodeComponent {
     this.replying.update((value) => !value);
   }
 
-  protected onReplied(rootId: string): void {
+  protected onReplied(posted: CommentPosted): void {
     this.replying.set(false);
-    this.replied.emit(rootId);
+    this.replied.emit(posted);
   }
 }

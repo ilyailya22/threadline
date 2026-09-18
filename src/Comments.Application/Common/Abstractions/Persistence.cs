@@ -53,6 +53,8 @@ public interface ICommentReadRepository
     Task<CommentThreadDto?> GetThreadAsync(
         Guid rootId,
         int maxDepth,
+        int limit,
+        string? afterPath,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<CommentNodeDto>> GetRepliesAsync(

@@ -66,9 +66,13 @@ public sealed class CommentsApiTests(CommentsApiFactory factory) : IAsyncLifetim
 
         thread.ShouldNotBeNull();
         thread.TotalCount.ShouldBe(3);
-        thread.Root.Replies.Count.ShouldBe(1);
-        thread.Root.Replies[0].Replies.Count.ShouldBe(1);
-        thread.Root.Replies[0].Replies[0].TextHtml.ShouldContain("A reply to the reply");
+
+        // Depth-first: root, then its reply, then the reply to the reply — each node right after
+        // its parent, which is what lets the client rebuild the nesting from a flat page.
+        thread.Nodes.Select(n => n.Id).ShouldBe([root.Id, reply.Id, nested.Id]);
+        thread.Nodes[2].ParentId.ShouldBe(reply.Id);
+        thread.Nodes[2].Depth.ShouldBe(3);
+        thread.HasMore.ShouldBeFalse();
     }
 
     [Fact]
@@ -99,18 +103,65 @@ public sealed class CommentsApiTests(CommentsApiFactory factory) : IAsyncLifetim
 
         thread.ShouldNotBeNull();
         thread.TotalCount.ShouldBe(20);
+        thread.Nodes.Select(n => n.Depth).ShouldBe(Enumerable.Range(1, 20));
+        thread.Nodes[^1].TextHtml.ShouldContain("Level 20");
+    }
 
-        var node = thread.Root;
-        var depth = 1;
+    /// <summary>
+    /// A thread is unbounded, so its endpoint pages. Walking every page with the cursor must return
+    /// each comment exactly once, in depth-first order, with every node after its parent.
+    /// </summary>
+    [Fact]
+    public async Task A_large_thread_is_paged_without_gaps_or_duplicates()
+    {
+        var root = await CreateCommentAsync("Big thread");
+        var ids = new List<Guid> { root.Id };
 
-        while (node.Replies.Count > 0)
+        for (var i = 0; i < 12; i++)
         {
-            node = node.Replies[0];
-            depth++;
+            var reply = await CreateCommentAsync($"Reply {i}", parentId: root.Id);
+            ids.Add(reply.Id);
+
+            if (i % 3 == 0)
+            {
+                ids.Add((await CreateCommentAsync($"Nested {i}", parentId: reply.Id)).Id);
+            }
         }
 
-        depth.ShouldBe(20);
-        node.TextHtml.ShouldContain("Level 20");
+        var seen = new List<CommentNodeDto>();
+        string? cursor = null;
+        var pages = 0;
+
+        do
+        {
+            var url = $"/api/comments/{root.Id}/thread?limit=5" + (cursor is null ? string.Empty : $"&after={cursor}");
+            var page = await _client.GetFromJsonAsync<CommentThreadDto>(url, Json);
+
+            page.ShouldNotBeNull();
+            page.TotalCount.ShouldBe(ids.Count);
+            page.Nodes.Count.ShouldBeLessThanOrEqualTo(5);
+
+            seen.AddRange(page.Nodes);
+            cursor = page.NextCursor;
+            pages++;
+        }
+        while (cursor is not null && pages < 20);
+
+        seen.Select(n => n.Id).ShouldBe(ids, ignoreOrder: true);
+        seen.Select(n => n.Id).Distinct().Count().ShouldBe(seen.Count);
+
+        var position = seen.Select((n, index) => (n.Id, index)).ToDictionary(x => x.Id, x => x.index);
+        seen.Where(n => n.ParentId is not null).ShouldAllBe(n => position[n.ParentId!.Value] < position[n.Id]);
+    }
+
+    [Fact]
+    public async Task A_malformed_thread_cursor_is_a_400()
+    {
+        var root = await CreateCommentAsync("Thread");
+
+        var response = await _client.GetAsync($"/api/comments/{root.Id}/thread?after=not-a-path");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
     // ---------------------------------------------------------------- validation

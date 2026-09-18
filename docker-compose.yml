@@ -126,6 +126,11 @@ services:
       Privacy__IpHashPepper: ${IP_HASH_PEPPER:-change-me-in-production-please}
       Cors__AllowedOrigins__0: "http://localhost:${WEB_PORT:-8080}"
       Cors__AllowedOrigins__1: "http://localhost:4200"
+      # Production values by default. A load test from a single generator is one client and would
+      # hit these immediately; raise them for throughput runs, e.g. RATE_LIMIT_READ=1000000.
+      RateLimiting__ReadPerMinute: ${RATE_LIMIT_READ:-300}
+      RateLimiting__WritePerMinute: ${RATE_LIMIT_WRITE:-10}
+      RateLimiting__CaptchaPerMinute: ${RATE_LIMIT_CAPTCHA:-30}
     ports:
       - "${API_PORT:-5080}:8080"
     depends_on:

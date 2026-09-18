@@ -2,8 +2,6 @@ using System.Data;
 using System.Diagnostics;
 using System.Globalization;
 using Bogus;
-using Threadline.Comments.Application.Comments.Dtos;
-using Threadline.Comments.Application.Common.Abstractions;
 using Threadline.Comments.Domain.Comments;
 using Microsoft.Data.SqlClient;
 using Spectre.Console;
@@ -30,7 +28,7 @@ namespace Threadline.Comments.Seeder;
 /// exercised the way production would exercise them.
 /// </para>
 /// </remarks>
-public sealed class DataSeeder(string connectionString, ICommentSearchIndex? searchIndex)
+public sealed class DataSeeder(string connectionString)
 {
     private const string Pepper = "seeded";
 
@@ -50,11 +48,6 @@ public sealed class DataSeeder(string connectionString, ICommentSearchIndex? sea
 
         var users = await SeedUsersAsync(options, cancellationToken);
         var roots = await SeedCommentsAsync(options, users, random, cancellationToken);
-
-        if (options.IndexSearch && searchIndex is not null)
-        {
-            await IndexAsync(roots, cancellationToken);
-        }
 
         stopwatch.Stop();
 
@@ -247,53 +240,6 @@ public sealed class DataSeeder(string connectionString, ICommentSearchIndex? sea
             });
 
         return roots;
-    }
-
-    private async Task IndexAsync(List<SeededComment> roots, CancellationToken cancellationToken)
-    {
-        if (searchIndex is null)
-        {
-            return;
-        }
-
-        await searchIndex.EnsureCreatedAsync(cancellationToken);
-
-        await AnsiConsole.Progress()
-            .Columns(new TaskDescriptionColumn(), new ProgressBarColumn(), new PercentageColumn(), new SpinnerColumn())
-            .StartAsync(async context =>
-            {
-                var task = context.AddTask("[blue]Elasticsearch[/]", maxValue: roots.Count);
-                var buffer = new List<CommentSearchDocument>(2_000);
-
-                foreach (var root in roots)
-                {
-                    buffer.Add(new CommentSearchDocument
-                    {
-                        Id = root.Id,
-                        AuthorId = root.Author.Id,
-                        UserName = root.Author.UserName,
-                        Email = root.Author.Email,
-                        TextHtml = $"Seeded thread {root.Id:N}",
-                        TextPlain = $"Seeded thread {root.Id:N}",
-                        CreatedAt = root.CreatedAt,
-                        ReplyCount = 0,
-                        Attachments = Array.Empty<AttachmentDto>(),
-                    });
-
-                    if (buffer.Count >= 2_000)
-                    {
-                        await searchIndex.IndexManyAsync(buffer, cancellationToken);
-                        task.Increment(buffer.Count);
-                        buffer.Clear();
-                    }
-                }
-
-                if (buffer.Count > 0)
-                {
-                    await searchIndex.IndexManyAsync(buffer, cancellationToken);
-                    task.Increment(buffer.Count);
-                }
-            });
     }
 
     /// <summary>Sprinkles in the allowed tags so the rendered output is not uniformly plain text.</summary>
