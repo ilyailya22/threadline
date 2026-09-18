@@ -1,7 +1,9 @@
 <form class="form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
   <div class="form__grid">
     <label class="field">
-      <span class="field__label">User Name <span class="field__required" aria-hidden="true">*</span></span>
+      <span class="field__label"
+        >User Name <span class="field__required" aria-hidden="true">*</span></span
+      >
       <input
         class="field__input"
         type="text"
@@ -18,7 +20,9 @@
     </label>
 
     <label class="field">
-      <span class="field__label">E-mail <span class="field__required" aria-hidden="true">*</span></span>
+      <span class="field__label"
+        >E-mail <span class="field__required" aria-hidden="true">*</span></span
+      >
       <input
         class="field__input"
         type="email"
@@ -82,7 +86,8 @@
         <span class="field__error">{{ error }}</span>
       } @else {
         <span class="field__hint">
-          Разрешены теги: &lt;a href="" title=""&gt;, &lt;code&gt;, &lt;i&gt;, &lt;strong&gt;. Все теги должны быть закрыты.
+          Разрешены теги: &lt;a href="" title=""&gt;, &lt;code&gt;, &lt;i&gt;, &lt;strong&gt;. Все
+          теги должны быть закрыты.
         </span>
       }
       <span class="field__counter">{{ form.controls.text.value.length }} / 20000</span>
@@ -93,7 +98,12 @@
     <section class="preview" aria-live="polite">
       <header class="preview__header">
         <h3 class="preview__title">Предпросмотр</h3>
-        <button type="button" class="preview__close" (click)="closePreview()" aria-label="Закрыть предпросмотр">
+        <button
+          type="button"
+          class="preview__close"
+          (click)="closePreview()"
+          aria-label="Закрыть предпросмотр"
+        >
           ✕
         </button>
       </header>
@@ -119,7 +129,11 @@
         @if (selected(); as chosen) {
           <div class="file__selected">
             @if (chosen.previewUrl) {
-              <img class="file__thumb" [src]="chosen.previewUrl" alt="Предпросмотр выбранного изображения" />
+              <img
+                class="file__thumb"
+                [src]="chosen.previewUrl"
+                alt="Предпросмотр выбранного изображения"
+              />
             }
             <span class="file__meta">
               <span class="file__name">{{ chosen.file.name }}</span>
@@ -140,16 +154,29 @@
     </div>
 
     <div class="field">
-      <span class="field__label">CAPTCHA <span class="field__required" aria-hidden="true">*</span></span>
+      <span class="field__label"
+        >CAPTCHA <span class="field__required" aria-hidden="true">*</span></span
+      >
 
       <div class="captcha">
         @if (captcha(); as challenge) {
-          <img class="captcha__image" [src]="challenge.imageUrl" alt="Символы на картинке" width="220" height="70" />
+          <img
+            class="captcha__image"
+            [src]="challenge.imageUrl"
+            alt="Символы на картинке"
+            width="220"
+            height="70"
+          />
         } @else {
           <div class="captcha__placeholder" aria-hidden="true"></div>
         }
 
-        <button type="button" class="captcha__refresh" (click)="refreshCaptcha()" title="Обновить картинку">
+        <button
+          type="button"
+          class="captcha__refresh"
+          (click)="refreshCaptcha()"
+          title="Обновить картинку"
+        >
           ⟳
         </button>
       </div>

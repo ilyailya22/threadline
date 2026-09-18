@@ -100,9 +100,10 @@ public sealed partial class ElasticsearchCommentIndex(
                 from = page.Skip,
                 size = page.PageSize,
 
-                // Counting every one of a million matches on every page request is pure waste; the
-                // pager only ever needs to know how far it may go.
-                track_total_hits = Paging.MaxOffset,
+                // Exact total: the table shows it, and a capped count ("10000") would be a lie the
+                // user can see. For these queries Elasticsearch counts from index statistics, so the
+                // exact figure is cheap; how far the user may page is limited separately.
+                track_total_hits = true,
                 query,
                 sort = BuildSort(page),
             },

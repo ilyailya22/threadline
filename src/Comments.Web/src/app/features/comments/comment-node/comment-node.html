@@ -2,11 +2,18 @@
 
 <article class="node" [attr.data-depth]="item.depth">
   <header class="node__header">
-    <span class="node__avatar" aria-hidden="true">{{ item.author.userName.charAt(0).toUpperCase() }}</span>
+    <span class="node__avatar" aria-hidden="true">{{
+      item.author.userName.charAt(0).toUpperCase()
+    }}</span>
 
     <span class="node__author">
       @if (item.author.homePage) {
-        <a class="node__name" [href]="item.author.homePage" target="_blank" rel="nofollow noopener noreferrer">
+        <a
+          class="node__name"
+          [href]="item.author.homePage"
+          target="_blank"
+          rel="nofollow noopener noreferrer"
+        >
           {{ item.author.userName }}
         </a>
       } @else {
@@ -15,7 +22,9 @@
       <span class="node__email">{{ item.author.email }}</span>
     </span>
 
-    <time class="node__time" [attr.datetime]="item.createdAt">{{ item.createdAt | relativeTime }}</time>
+    <time class="node__time" [attr.datetime]="item.createdAt">{{
+      item.createdAt | relativeTime
+    }}</time>
 
     <button type="button" class="node__reply" (click)="toggleReply()">
       {{ replying() ? 'Отмена' : 'Ответить' }}
@@ -32,7 +41,11 @@
 
   @if (replying()) {
     <div class="node__form">
-      <app-comment-form [parentId]="item.id" (created)="onReplied($event)" (cancelled)="toggleReply()" />
+      <app-comment-form
+        [parentId]="item.id"
+        (created)="onReplied($event)"
+        (cancelled)="toggleReply()"
+      />
     </div>
   }
 

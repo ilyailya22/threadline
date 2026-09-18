@@ -209,7 +209,9 @@ export class CommentForm {
     }
 
     if (isText && file.size > rules.attachments.maxTextFileBytes) {
-      this.fileError.set(`Текстовый файл не должен превышать ${rules.attachments.maxTextFileBytes / 1024} КБ.`);
+      this.fileError.set(
+        `Текстовый файл не должен превышать ${rules.attachments.maxTextFileBytes / 1024} КБ.`,
+      );
       input.value = '';
       return;
     }
@@ -233,7 +235,9 @@ export class CommentForm {
     // Oversized images are accepted, not rejected: the assignment says they must be scaled down.
     // Telling the user it will happen avoids the surprise of a smaller picture than they uploaded.
     const note =
-      size && (size.width > rules.attachments.maxImageWidth || size.height > rules.attachments.maxImageHeight)
+      size &&
+      (size.width > rules.attachments.maxImageWidth ||
+        size.height > rules.attachments.maxImageHeight)
         ? `${size.width}×${size.height} → будет уменьшено до ${rules.attachments.maxImageWidth}×${rules.attachments.maxImageHeight}`
         : size
           ? `${size.width}×${size.height}`

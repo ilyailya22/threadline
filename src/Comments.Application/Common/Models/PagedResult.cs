@@ -23,7 +23,15 @@ public sealed record PagedResult<T>(
     int PageSize,
     long TotalCount)
 {
-    public int TotalPages => PageSize <= 0 ? 0 : (int)Math.Ceiling(TotalCount / (double)PageSize);
+    /// <summary>
+    /// Pages the client may navigate to. The count of items is exact, but deep offset paging is
+    /// capped at <see cref="Paging.MaxOffset"/>, so the pager stops there even when there is more.
+    /// </summary>
+    public int TotalPages => PageSize <= 0
+        ? 0
+        : (int)Math.Min(
+            Math.Ceiling(TotalCount / (double)PageSize),
+            Math.Ceiling(Paging.MaxOffset / (double)PageSize));
 
     public bool HasPrevious => Page > 1;
 

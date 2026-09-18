@@ -42,7 +42,8 @@ public sealed partial class GetTopLevelCommentsQueryHandler(
 
         var page = request.Page.Normalized();
 
-        if (page.Skip > Paging.MaxOffset)
+        // from + size, not from alone: Elasticsearch refuses any window that ends past the limit.
+        if (page.Skip + page.PageSize > Paging.MaxOffset)
         {
             throw new InputValidationException(
                 "page",

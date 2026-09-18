@@ -165,7 +165,11 @@
   width: 1.6rem;
   height: 1.6rem;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #7b4bd6));
+  background: linear-gradient(
+    135deg,
+    var(--accent),
+    color-mix(in srgb, var(--accent) 55%, #7b4bd6)
+  );
   color: #fff;
   font-size: 0.72rem;
 }

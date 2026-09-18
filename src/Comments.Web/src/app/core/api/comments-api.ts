@@ -79,7 +79,9 @@ export class CommentsApi {
       params = params.set('after', after);
     }
 
-    return this.http.get<CommentThread>(`${this.baseUrl}/api/comments/${rootId}/thread`, { params });
+    return this.http.get<CommentThread>(`${this.baseUrl}/api/comments/${rootId}/thread`, {
+      params,
+    });
   }
 
   /**

@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 
@@ -149,7 +157,9 @@ export class CommentsPage implements OnInit {
           node.id === event.commentId
             ? {
                 ...node,
-                attachments: node.attachments.map((a) => (a.id === event.attachment.id ? event.attachment : a)),
+                attachments: node.attachments.map((a) =>
+                  a.id === event.attachment.id ? event.attachment : a,
+                ),
               }
             : node,
         ),

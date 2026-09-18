@@ -8,7 +8,11 @@
     </div>
 
     <div class="page__tools">
-      <span class="live" [class.live--on]="liveConnected()" [title]="liveConnected() ? 'Обновления в реальном времени' : 'Нет соединения'">
+      <span
+        class="live"
+        [class.live--on]="liveConnected()"
+        [title]="liveConnected() ? 'Обновления в реальном времени' : 'Нет соединения'"
+      >
         <span class="live__dot" aria-hidden="true"></span>
         {{ liveConnected() ? 'Live' : 'Offline' }}
       </span>
@@ -94,7 +98,10 @@
               <time [attr.datetime]="item.createdAt">{{ item.createdAt | relativeTime }}</time>
             </td>
             <td data-label="Комментарий">
-              <div class="comment-text table__preview" [innerHTML]="item.textHtml | sanitizedHtml"></div>
+              <div
+                class="comment-text table__preview"
+                [innerHTML]="item.textHtml | sanitizedHtml"
+              ></div>
 
               @for (attachment of item.attachments; track attachment.id) {
                 <!-- Opening the lightbox must not also toggle the thread the row belongs to. -->
@@ -187,7 +194,11 @@
       </nav>
 
       <p class="pager__summary">
-        Всего заглавных комментариев: {{ paged.totalCount }} · страница {{ paged.page }} из {{ paged.totalPages }}
+        Всего заглавных комментариев: {{ paged.totalCount }} · страница {{ paged.page }} из
+        {{ paged.totalPages }}
+        @if (paged.totalCount > paged.totalPages * paged.pageSize) {
+          · листать можно первые {{ paged.totalPages }} страниц — дальше используйте сортировку
+        }
       </p>
     }
   }

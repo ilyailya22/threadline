@@ -10,7 +10,9 @@
           @if (item.downloadUrl) {
             <a class="lightbox__download" [href]="item.downloadUrl" download>Скачать</a>
           }
-          <button type="button" class="lightbox__close" (click)="close()" aria-label="Закрыть">✕</button>
+          <button type="button" class="lightbox__close" (click)="close()" aria-label="Закрыть">
+            ✕
+          </button>
         </div>
       </header>
 

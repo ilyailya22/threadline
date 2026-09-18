@@ -1,8 +1,5 @@
 import { provideHttpClient, withFetch, withXsrfConfiguration } from '@angular/common/http';
-import {
-  provideBrowserGlobalErrorListeners,
-  type ApplicationConfig,
-} from '@angular/core';
+import { provideBrowserGlobalErrorListeners, type ApplicationConfig } from '@angular/core';
 import { provideRouter, withComponentInputBinding, withInMemoryScrolling } from '@angular/router';
 
 import { routes } from './app.routes';
