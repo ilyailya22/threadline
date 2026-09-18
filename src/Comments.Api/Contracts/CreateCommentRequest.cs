@@ -1,5 +1,7 @@
 using System.ComponentModel.DataAnnotations;
+using Threadline.Comments.Application.Attachments;
 using Threadline.Comments.Application.Captcha;
+using Threadline.Comments.Application.Comments.Commands.CreateComment;
 using Threadline.Comments.Domain.Comments;
 using Threadline.Comments.Domain.Users;
 
@@ -43,4 +45,8 @@ public sealed class CreateCommentRequest
 
     /// <summary>Optional image (JPG/GIF/PNG) or text file (TXT).</summary>
     public IFormFile? File { get; set; }
+
+    /// <summary>The command this form becomes, with the file (if any) already opened by the caller.</summary>
+    public CreateCommentCommand ToCommand(AttachmentUpload? attachment) =>
+        new(UserName, Email, HomePage, Text, ParentId, CaptchaId, CaptchaAnswer, attachment);
 }

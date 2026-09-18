@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using Threadline.Comments.Application.Common.Abstractions;
 using System.Text;
 using Microsoft.Extensions.Options;
 

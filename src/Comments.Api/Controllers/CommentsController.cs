@@ -1,6 +1,5 @@
 using Threadline.Comments.Api.Contracts;
 using Threadline.Comments.Application.Attachments;
-using Threadline.Comments.Application.Comments.Commands.CreateComment;
 using Threadline.Comments.Application.Comments.Dtos;
 using Threadline.Comments.Application.Comments.Queries.GetCommentThread;
 using Threadline.Comments.Application.Comments.Queries.GetTopLevelComments;
@@ -115,17 +114,7 @@ public sealed class CommentsController(ISender sender) : ControllerBase
             ? null
             : new AttachmentUpload(file.FileName, file.ContentType, file.Length, content);
 
-        var result = await sender.Send(
-            new CreateCommentCommand(
-                request.UserName,
-                request.Email,
-                request.HomePage,
-                request.Text,
-                request.ParentId,
-                request.CaptchaId,
-                request.CaptchaAnswer,
-                upload),
-            cancellationToken);
+        var result = await sender.Send(request.ToCommand(upload), cancellationToken);
 
         return CreatedAtAction(nameof(GetThread), new { rootId = result.RootId }, result);
     }

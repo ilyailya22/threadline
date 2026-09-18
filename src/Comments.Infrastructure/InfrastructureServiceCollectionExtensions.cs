@@ -84,6 +84,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IUnitOfWork>(provider => provider.GetRequiredService<AppDbContext>());
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<ICommentRepository, CommentRepository>();
+        services.AddScoped<IAttachmentRepository, AttachmentRepository>();
         services.AddScoped<ICommentReadRepository, CommentReadRepository>();
 
         return services;

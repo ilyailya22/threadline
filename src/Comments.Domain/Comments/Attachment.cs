@@ -125,12 +125,15 @@ public sealed class Attachment : Entity
     /// <summary>Called by the worker once the image has been downscaled and a thumbnail produced.</summary>
     public void MarkImageProcessed(
         string storagePath,
+        string contentType,
         string thumbnailPath,
         int width,
         int height,
         long sizeBytes,
         DateTimeOffset now)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(contentType);
+
         if (Kind != AttachmentKind.Image)
         {
             throw new DomainException("Only image attachments can be marked as image-processed.");
@@ -142,7 +145,10 @@ public sealed class Attachment : Entity
                 $"A processed image must fit into {MaxImageWidth}×{MaxImageHeight} pixels, got {width}×{height}.");
         }
 
+        // The stored file is re-encoded, so its type is the processor's output format, not what was
+        // uploaded. Keeping the upload's type would serve a PNG labelled image/jpeg.
         StoragePath = storagePath;
+        ContentType = contentType;
         ThumbnailPath = thumbnailPath;
         Width = width;
         Height = height;
