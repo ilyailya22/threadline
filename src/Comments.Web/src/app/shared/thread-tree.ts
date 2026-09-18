@@ -1,4 +1,4 @@
-import type { CommentNode } from '../core/api/models';
+import type { CommentNode, CommentTreeNode } from '../core/api/models';
 
 /**
  * Assembles flat thread nodes into the nested tree the view renders.
@@ -9,7 +9,10 @@ import type { CommentNode } from '../core/api/models';
  * happened to arrive in. A node whose parent has not been loaded yet is simply not attached until
  * it has.
  */
-export function buildThreadTree(nodes: readonly CommentNode[], rootId: string): CommentNode | null {
+export function buildThreadTree(
+  nodes: readonly CommentNode[],
+  rootId: string,
+): CommentTreeNode | null {
   const children = new Map<string, CommentNode[]>();
   let root: CommentNode | undefined;
 
@@ -30,7 +33,7 @@ export function buildThreadTree(nodes: readonly CommentNode[], rootId: string): 
     return null;
   }
 
-  const attach = (node: CommentNode): CommentNode => {
+  const attach = (node: CommentNode): CommentTreeNode => {
     const replies = (children.get(node.id) ?? [])
       .slice()
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))

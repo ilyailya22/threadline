@@ -1,4 +1,6 @@
+using Threadline.Comments.Application.Comments.Dtos;
 using Threadline.Comments.Application.Common.Abstractions;
+using Threadline.Comments.Application.Common.Models;
 using Microsoft.Extensions.Caching.Hybrid;
 
 namespace Threadline.Comments.Infrastructure.Caching;
@@ -32,9 +34,9 @@ public sealed class HybridCommentCache(HybridCache cache) : ICommentCache
 
     private static readonly string[] Tags = [TopLevelTag];
 
-    public async Task<PagedCacheEntry> GetOrCreateTopLevelAsync(
+    public async Task<PagedResult<CommentListItemDto>> GetOrCreateTopLevelAsync(
         string key,
-        Func<CancellationToken, ValueTask<PagedCacheEntry>> factory,
+        Func<CancellationToken, ValueTask<PagedResult<CommentListItemDto>>> factory,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(factory);

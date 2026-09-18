@@ -4,6 +4,7 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  effect,
   inject,
   input,
   output,
@@ -11,13 +12,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import {
-  FormBuilder,
-  ReactiveFormsModule,
-  Validators,
-  type AbstractControl,
-  type ValidationErrors,
-} from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators, type AbstractControl } from '@angular/forms';
 
 import { CommentsApi } from '../../../core/api/comments-api';
 import type {
@@ -27,6 +22,7 @@ import type {
   ValidationRules,
 } from '../../../core/api/models';
 import { SanitizedHtmlPipe } from '../../../shared/sanitized-html.pipe';
+import { balancedTagsValidator, httpUrlValidator, validatorsFor } from './comment-form.validators';
 
 /** A tag button on the markup toolbar. */
 interface TagButton {
@@ -84,11 +80,12 @@ export class CommentForm {
   ];
 
   protected readonly form = this.fb.nonNullable.group({
-    userName: ['', [Validators.required, Validators.pattern(/^[A-Za-z0-9]{2,64}$/)]],
-    email: ['', [Validators.required, Validators.email, Validators.maxLength(254)]],
+    // Only the structural checks until the server's rules arrive — see applyRules.
+    userName: ['', [Validators.required]],
+    email: ['', [Validators.required]],
     homePage: ['', [httpUrlValidator]],
-    text: ['', [Validators.required, Validators.maxLength(20_000), balancedTagsValidator]],
-    captchaAnswer: ['', [Validators.required, Validators.pattern(/^[A-Za-z0-9]{1,16}$/)]],
+    text: ['', [Validators.required]],
+    captchaAnswer: ['', [Validators.required]],
   });
 
   constructor() {
@@ -102,7 +99,33 @@ export class CommentForm {
       this.serverError.set(null);
     });
 
+    effect(() => {
+      const rules = this.rules();
+
+      if (rules) {
+        this.applyRules(rules);
+      }
+    });
+
     this.destroyRef.onDestroy(() => this.revokeUrls());
+  }
+
+  /** Replaces the provisional validators with the ones built from the server's published rules. */
+  private applyRules(rules: ValidationRules): void {
+    const { controls } = this.form;
+
+    controls.userName.setValidators(validatorsFor(rules.userName));
+    controls.email.setValidators(validatorsFor(rules.email));
+    controls.homePage.setValidators([...validatorsFor(rules.homePage), httpUrlValidator]);
+    controls.text.setValidators([
+      ...validatorsFor(rules.text),
+      balancedTagsValidator(rules.allowedTags),
+    ]);
+    controls.captchaAnswer.setValidators(validatorsFor(rules.captcha));
+
+    for (const control of Object.values(controls)) {
+      control.updateValueAndValidity({ emitEvent: false });
+    }
   }
 
   protected refreshCaptcha(): void {
@@ -325,8 +348,8 @@ export class CommentForm {
       return 'Обязательное поле.';
     }
 
-    if (errors['email']) {
-      return 'Некорректный e-mail.';
+    if (errors['minlength']) {
+      return 'Слишком короткое значение.';
     }
 
     if (errors['maxlength']) {
@@ -342,9 +365,7 @@ export class CommentForm {
     }
 
     if (errors['pattern']) {
-      return name === 'userName' || name === 'captchaAnswer'
-        ? 'Только латинские буквы и цифры.'
-        : 'Некорректный формат.';
+      return name === 'email' ? 'Некорректный e-mail.' : 'Только латинские буквы и цифры.';
     }
 
     return 'Некорректное значение.';
@@ -416,56 +437,6 @@ export class CommentForm {
       URL.revokeObjectURL(previewUrl);
     }
   }
-}
-
-/** Optional field: empty is valid, anything present must be an absolute http(s) URL. */
-function httpUrlValidator(control: AbstractControl): ValidationErrors | null {
-  const value = (control.value as string | null)?.trim();
-
-  if (!value) {
-    return null;
-  }
-
-  try {
-    const url = new URL(value);
-
-    return url.protocol === 'http:' || url.protocol === 'https:' ? null : { url: true };
-  } catch {
-    return { url: true };
-  }
-}
-
-const ALLOWED_TAGS = new Set(['a', 'code', 'i', 'strong']);
-
-/**
- * Checks that the allowed tags are balanced, mirroring the server's rule.
- *
- * The server is the authority and refuses unbalanced markup outright; doing the same check here
- * means the user sees "тег &lt;strong&gt; не закрыт" as they type rather than after a round trip.
- * Unknown tags are ignored on purpose — the server escapes them into text, it does not reject them.
- */
-function balancedTagsValidator(control: AbstractControl): ValidationErrors | null {
-  const value = (control.value as string | null) ?? '';
-  const stack: string[] = [];
-
-  for (const match of value.matchAll(/<\s*(\/?)\s*([A-Za-z][A-Za-z0-9]*)[^<>]*?>/g)) {
-    const [, closing, rawName] = match;
-    const name = rawName.toLowerCase();
-
-    if (!ALLOWED_TAGS.has(name)) {
-      continue;
-    }
-
-    if (closing) {
-      if (stack.pop() !== name) {
-        return { unbalancedTag: name };
-      }
-    } else if (!match[0].endsWith('/>')) {
-      stack.push(name);
-    }
-  }
-
-  return stack.length > 0 ? { unbalancedTag: stack[stack.length - 1] } : null;
 }
 
 function readImageSize(url: string): Promise<{ width: number; height: number } | null> {

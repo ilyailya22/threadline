@@ -17,6 +17,12 @@ import { LightboxService } from './lightbox.service';
   selector: 'app-lightbox',
   templateUrl: './lightbox.html',
   styleUrl: './lightbox.scss',
+  host: {
+    // A click on the backdrop lands on the <dialog> itself, not on the panel inside it. The keyboard
+    // equivalent is Escape, which the native dialog already handles — so this lives on the host
+    // rather than as a template click handler that would look keyboard-inaccessible.
+    '(click)': 'closeOnBackdrop($event)',
+  },
 })
 export class Lightbox {
   private readonly dialogRef = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
@@ -38,5 +44,11 @@ export class Lightbox {
 
   protected close(): void {
     this.lightbox.close();
+  }
+
+  protected closeOnBackdrop(event: MouseEvent): void {
+    if (event.target === this.dialogRef().nativeElement) {
+      this.close();
+    }
   }
 }

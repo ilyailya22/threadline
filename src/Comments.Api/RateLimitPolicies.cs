@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Threading.RateLimiting;
 using Threadline.Comments.Api.Services;
-using Microsoft.AspNetCore.RateLimiting;
 
 namespace Threadline.Comments.Api;
 

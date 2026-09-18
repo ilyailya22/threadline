@@ -16,10 +16,13 @@ public sealed class FileTypeSniffer : IFileTypeSniffer
     /// <summary>Bytes needed to recognise every supported signature.</summary>
     public const int HeaderSize = 16;
 
-    private static readonly SniffedFileType Jpeg = new(AttachmentKind.Image, "image/jpeg", [".jpg", ".jpeg"]);
-    private static readonly SniffedFileType Png = new(AttachmentKind.Image, "image/png", [".png"]);
-    private static readonly SniffedFileType Gif = new(AttachmentKind.Image, "image/gif", [".gif"]);
-    private static readonly SniffedFileType PlainText = new(AttachmentKind.TextFile, "text/plain", [".txt"]);
+    public static readonly SniffedFileType Jpeg = new(AttachmentKind.Image, "image/jpeg", [".jpg", ".jpeg"]);
+    public static readonly SniffedFileType Png = new(AttachmentKind.Image, "image/png", [".png"]);
+    public static readonly SniffedFileType Gif = new(AttachmentKind.Image, "image/gif", [".gif"]);
+    public static readonly SniffedFileType PlainText = new(AttachmentKind.TextFile, "text/plain", [".txt"]);
+
+    /// <summary>Every type an upload may be — the single list the published validation rules come from.</summary>
+    public static readonly IReadOnlyList<SniffedFileType> SupportedTypes = [Jpeg, Png, Gif, PlainText];
 
     private static ReadOnlySpan<byte> JpegSignature => [0xFF, 0xD8, 0xFF];
 
@@ -69,7 +72,7 @@ public sealed class FileTypeSniffer : IFileTypeSniffer
                 return false;
             }
 
-            if (b < 0x20 && b is not ((byte)'\t' or (byte)'\n' or (byte)'\r'))
+            if (b is < 0x20 and not ((byte)'\t' or (byte)'\n' or (byte)'\r'))
             {
                 return false;
             }

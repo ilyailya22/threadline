@@ -1,5 +1,5 @@
-using System.Security.Cryptography;
 using Threadline.Comments.Application.Common.Abstractions;
+using Threadline.Comments.Application.Common.Security;
 using Microsoft.Extensions.Logging;
 
 namespace Threadline.Comments.Application.Captcha;
@@ -19,12 +19,13 @@ public sealed partial class CaptchaService(
 
     public async Task<CaptchaChallenge> IssueAsync(CancellationToken cancellationToken = default)
     {
+        var now = clock.UtcNow;
         var code = generator.Generate();
-        var id = Guid.CreateVersion7(clock.UtcNow);
+        var id = Guid.CreateVersion7(now);
 
         await store.StoreAsync(id, code, Lifetime, cancellationToken);
 
-        return new CaptchaChallenge(id, renderer.Render(code), clock.UtcNow.Add(Lifetime));
+        return new CaptchaChallenge(id, renderer.Render(code), now.Add(Lifetime));
     }
 
     public async Task<bool> ValidateAsync(
@@ -32,13 +33,13 @@ public sealed partial class CaptchaService(
         string? answer,
         CancellationToken cancellationToken = default)
     {
-        if (challengeId == Guid.Empty || string.IsNullOrWhiteSpace(answer))
+        if (challengeId == Guid.Empty)
         {
             return false;
         }
 
-        // Consuming before comparing is what makes this one-shot: a wrong answer burns the
-        // challenge too, so an attacker cannot brute-force one image with repeated guesses.
+        // Consuming before looking at the answer is what makes this one-shot: a wrong or empty
+        // answer burns the challenge too, so one image cannot be brute-forced with repeated guesses.
         var expected = await store.ConsumeAsync(challengeId, cancellationToken);
 
         if (expected is null)
@@ -47,40 +48,12 @@ public sealed partial class CaptchaService(
             return false;
         }
 
-        return FixedTimeEquals(expected, answer.Trim());
-    }
-
-    /// <summary>
-    /// Constant-time comparison. A CAPTCHA is not a secret worth a timing attack, but comparing
-    /// user-supplied strings in constant time is a habit worth keeping uniform across a codebase —
-    /// the day it is a session token, nobody has to remember to switch.
-    /// </summary>
-    private static bool FixedTimeEquals(string expected, string actual)
-    {
-        var a = System.Text.Encoding.UTF8.GetBytes(expected.ToUpperInvariant());
-        var b = System.Text.Encoding.UTF8.GetBytes(actual.ToUpperInvariant());
-
-        return a.Length == b.Length && CryptographicOperations.FixedTimeEquals(a, b);
+        return !string.IsNullOrWhiteSpace(answer)
+            && ConstantTime.AreEqual(expected.ToUpperInvariant(), answer.Trim().ToUpperInvariant());
     }
 
     [LoggerMessage(
         Level = LogLevel.Debug,
         Message = "CAPTCHA challenge {ChallengeId} was unknown, expired or already used")]
     private static partial void LogUnknownChallenge(ILogger logger, Guid challengeId);
-}
-
-/// <summary>
-/// Generates the challenge text.
-/// </summary>
-/// <remarks>
-/// Characters that are easy to confuse in a distorted image — 0/O, 1/I/l, 5/S, 2/Z — are left out.
-/// Rejecting a human who read the image correctly is a worse failure than a slightly smaller
-/// alphabet: 32^5 is still 33 million combinations against a one-shot, rate-limited challenge.
-/// </remarks>
-public sealed class CaptchaCodeGenerator : ICaptchaCodeGenerator
-{
-    private const string Alphabet = "ABCDEFGHJKMNPQRTUVWXY346789";
-    private const int Length = 5;
-
-    public string Generate() => RandomNumberGenerator.GetString(Alphabet, Length);
 }

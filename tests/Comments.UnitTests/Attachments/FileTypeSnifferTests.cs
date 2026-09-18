@@ -69,16 +69,11 @@ public sealed class FileTypeSnifferTests
     [InlineData(new byte[] { 0x50, 0x4B, 0x03, 0x04, 0x14, 0x00, 0x00, 0x00 })]     // zip/docx
     [InlineData(new byte[] { 0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x00 })]     // PDF (has a NUL)
     [InlineData(new byte[] { 0xFF, 0xFE, 0x41, 0x00, 0x42, 0x00, 0x43, 0x00 })]     // UTF-16 BOM
-    public void Rejects_everything_else(byte[] header)
-    {
-        _sniffer.Detect(header).ShouldBeNull();
-    }
+    public void Rejects_everything_else(byte[] header) => _sniffer.Detect(header).ShouldBeNull();
 
     [Fact]
-    public void An_empty_header_is_not_a_file()
-    {
+    public void An_empty_header_is_not_a_file() =>
         // Zero bytes technically pass the "no NUL, no control characters" test for text, but an
         // empty upload is rejected by the size check in the intake service either way.
         _sniffer.Detect([]).ShouldNotBeNull();
-    }
 }

@@ -24,9 +24,9 @@ without a database.
 |---|---|---|
 | **Domain** | Entities, value objects, domain events, invariants | Any framework, any I/O |
 | **Application** | CQRS handlers, validation, the sanitiser, port interfaces | Concrete infrastructure |
-| **Infrastructure** | EF Core, Elasticsearch, Redis, RabbitMQ, Blob, Skia | HTTP concerns |
-| **Api** | Controllers, GraphQL, SignalR, composition root | Business rules |
-| **Worker** | Outbox publisher, message consumers | Business rules |
+| **Infrastructure** | EF Core, Elasticsearch, Redis, RabbitMQ (outbox publisher and consumers), Blob, Skia | HTTP concerns |
+| **Api** | Controllers, GraphQL, SignalR hub, composition root of the web tier | Business rules, data access |
+| **Worker** | Composition root of the background tier — hosts the outbox publisher and consumers | Business rules |
 
 The application layer declares what it needs as interfaces (`ICommentRepository`,
 `ICommentSearchIndex`, `IFileStorage`, `ICaptchaStore`, …) and infrastructure implements them. The
@@ -47,6 +47,9 @@ databases pretending not to know about each other.
 The MediatR pipeline gives every request validation and structured logging without any handler
 opting in. Validators are registered, not called: a command with no validator is a greppable fact
 rather than a silent hole.
+
+Every entry point goes through the same pipeline: REST controllers and GraphQL resolvers both send
+MediatR requests and never touch a repository, so a rule added to the pipeline applies to both.
 
 ---
 
@@ -377,3 +380,22 @@ The ones that would change first at real production scale are collected in
 | [0003](adr/0003-elasticsearch-read-model.md) | Elasticsearch as the read model for the list |
 | [0004](adr/0004-custom-sanitizer.md) | A hand-written sanitiser rather than a library |
 | [0005](adr/0005-skiasharp-over-imagesharp.md) | SkiaSharp for image work |
+
+---
+
+## 13. Code conventions
+
+The rules below are enforced by the build, not by review: warnings are errors, analyzers run at
+`latest-recommended`, and CI runs `dotnet format --verify-no-changes --severity info` and `ng lint`,
+so what the IDE highlights and what the build accepts are the same thing.
+
+| Concern | Convention |
+|---|---|
+| Files | One top-level type per file, file named after the type |
+| Naming | `_camelCase` private instance fields; `PascalCase` constants and `static readonly` fields; `Async` suffix on awaitables |
+| Commands and queries | `XxxCommand`/`XxxQuery` and `XxxHandler` in separate files, one folder per use case |
+| Abstractions | Ports live in `Application/Common/Abstractions`, one interface per file, only the members a caller uses |
+| Registration | One `AddXxx` extension per layer (`AddApplication`, `AddInfrastructure`) and per concern in the API |
+| Limits and patterns | Defined once — in the domain (`UserName.Pattern`, `CommentBody.MaxHtmlLength`) or next to the feature (`CaptchaAnswerFormat`) — and referenced by the validator, the request model and the rules the client downloads |
+| Frontend | Strict TypeScript and strict templates; form validators are built from `/api/validation-rules`, never retyped |
+

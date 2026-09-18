@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
 
-import type { CommentNode, CommentPosted } from '../../../core/api/models';
+import type { CommentPosted, CommentTreeNode } from '../../../core/api/models';
 import { RelativeTimePipe } from '../../../shared/relative-time.pipe';
 import { SanitizedHtmlPipe } from '../../../shared/sanitized-html.pipe';
 import { AttachmentView } from '../attachment-view/attachment-view';
@@ -21,7 +21,7 @@ import { CommentForm } from '../comment-form/comment-form';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CommentNodeComponent {
-  readonly comment = input.required<CommentNode>();
+  readonly comment = input.required<CommentTreeNode>();
 
   /** Raised when a reply is posted anywhere in this subtree, so the page can show it at once. */
   readonly replied = output<CommentPosted>();

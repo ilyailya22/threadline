@@ -46,6 +46,10 @@ jobs:
       - name: Build
         run: dotnet build --no-restore --configuration Release
 
+      # The same checks the IDE shows, including suggestions: naming, unused usings, formatting.
+      - name: Style check
+        run: dotnet format --no-restore --verify-no-changes --severity info
+
       - name: Unit tests
         run: >
           dotnet test tests/Comments.UnitTests
@@ -93,6 +97,9 @@ jobs:
 
       - name: Format check
         run: npx prettier --check "src/**/*.{ts,html,scss}"
+
+      - name: Lint
+        run: npm run lint
 
       - name: Build
         run: npm run build -- --configuration production

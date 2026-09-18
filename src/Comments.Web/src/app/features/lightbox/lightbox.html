@@ -1,4 +1,4 @@
-<dialog #dialog class="lightbox" (close)="close()" (click)="$event.target === dialog && close()">
+<dialog #dialog class="lightbox" (close)="close()">
   @let item = lightbox.content();
 
   @if (item) {

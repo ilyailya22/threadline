@@ -1,4 +1,8 @@
+using Threadline.Comments.Api.Contracts;
+using Threadline.Comments.Application.Attachments;
+using Threadline.Comments.Application.Captcha;
 using Threadline.Comments.Application.Comments.Sanitization;
+using Threadline.Comments.Application.Common.Models;
 using Threadline.Comments.Domain.Comments;
 using Threadline.Comments.Domain.Users;
 using Microsoft.AspNetCore.Mvc;
@@ -20,6 +24,10 @@ namespace Threadline.Comments.Api.Controllers;
 [Produces("application/json")]
 public sealed class ValidationRulesController : ControllerBase
 {
+    private static readonly SniffedFileType[] ImageTypes = TypesOf(AttachmentKind.Image);
+
+    private static readonly SniffedFileType[] TextTypes = TypesOf(AttachmentKind.TextFile);
+
     [HttpGet]
     [OutputCache(Duration = 3600)]
     [ProducesResponseType<ValidationRulesResponse>(StatusCodes.Status200OK)]
@@ -57,73 +65,25 @@ public sealed class ValidationRulesController : ControllerBase
             Captcha = new FieldRules
             {
                 Required = true,
-                Pattern = "^[A-Za-z0-9]{1,16}$",
-                MaxLength = 16,
+                Pattern = CaptchaAnswerFormat.Pattern,
+                MaxLength = CaptchaAnswerFormat.MaxLength,
                 Description = "Latin letters and digits only.",
             },
             AllowedTags = [.. CommentTextSanitizer.AllowedTags],
             AllowedAnchorAttributes = [.. CommentTextSanitizer.AllowedAnchorAttributes],
             Attachments = new AttachmentRules
             {
-                ImageContentTypes = ["image/jpeg", "image/png", "image/gif"],
-                ImageExtensions = [".jpg", ".jpeg", ".png", ".gif"],
+                ImageContentTypes = [.. ImageTypes.Select(t => t.ContentType)],
+                ImageExtensions = [.. ImageTypes.SelectMany(t => t.Extensions)],
                 MaxImageUploadBytes = Attachment.MaxImageUploadBytes,
                 MaxImageWidth = Attachment.MaxImageWidth,
                 MaxImageHeight = Attachment.MaxImageHeight,
-                TextExtensions = [".txt"],
+                TextExtensions = [.. TextTypes.SelectMany(t => t.Extensions)],
                 MaxTextFileBytes = Attachment.MaxTextFileBytes,
             },
-            PageSize = Application.Common.Models.Paging.DefaultPageSize,
+            PageSize = Paging.DefaultPageSize,
         });
-}
 
-public sealed record FieldRules
-{
-    public bool Required { get; init; }
-
-    public string? Pattern { get; init; }
-
-    public int? MinLength { get; init; }
-
-    public int? MaxLength { get; init; }
-
-    public string? Description { get; init; }
-}
-
-public sealed record AttachmentRules
-{
-    public IReadOnlyList<string> ImageContentTypes { get; init; } = [];
-
-    public IReadOnlyList<string> ImageExtensions { get; init; } = [];
-
-    public long MaxImageUploadBytes { get; init; }
-
-    public int MaxImageWidth { get; init; }
-
-    public int MaxImageHeight { get; init; }
-
-    public IReadOnlyList<string> TextExtensions { get; init; } = [];
-
-    public long MaxTextFileBytes { get; init; }
-}
-
-public sealed record ValidationRulesResponse
-{
-    public required FieldRules UserName { get; init; }
-
-    public required FieldRules Email { get; init; }
-
-    public required FieldRules HomePage { get; init; }
-
-    public required FieldRules Text { get; init; }
-
-    public required FieldRules Captcha { get; init; }
-
-    public IReadOnlyList<string> AllowedTags { get; init; } = [];
-
-    public IReadOnlyList<string> AllowedAnchorAttributes { get; init; } = [];
-
-    public required AttachmentRules Attachments { get; init; }
-
-    public int PageSize { get; init; }
+    private static SniffedFileType[] TypesOf(AttachmentKind kind) =>
+        [.. FileTypeSniffer.SupportedTypes.Where(t => t.Kind == kind)];
 }
