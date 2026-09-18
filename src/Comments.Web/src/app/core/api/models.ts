@@ -42,6 +42,7 @@ export interface CommentListItem {
   readonly attachments: readonly Attachment[];
 }
 
+/** One comment of a thread, as the server sends it: flat, nested only through `parentId`. */
 export interface CommentNode {
   readonly id: string;
   readonly parentId?: string | null;
@@ -51,7 +52,11 @@ export interface CommentNode {
   readonly textHtml: string;
   readonly createdAt: string;
   readonly attachments: readonly Attachment[];
-  readonly replies: readonly CommentNode[];
+}
+
+/** A comment with its replies attached — what the view renders, built by `buildThreadTree`. */
+export interface CommentTreeNode extends CommentNode {
+  readonly replies: readonly CommentTreeNode[];
 }
 
 /** One page of a thread: a flat, depth-first list the client assembles into a tree. */

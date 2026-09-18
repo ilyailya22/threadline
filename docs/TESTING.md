@@ -2,10 +2,10 @@
 
 | Layer | Project | Count | Needs | Runs in |
 |---|---|---|---|---|
-| Unit | `tests/Comments.UnitTests` | 131 | nothing | < 1 s |
+| Unit | `tests/Comments.UnitTests` | 146 | nothing | < 1 s |
 | Integration | `tests/Comments.IntegrationTests` | 30 | Docker | ~1 min after images are pulled |
 | Load | `loadtests/k6`, `tests/Comments.LoadTests` | 3 + 3 scenarios | a running stack | minutes |
-| Frontend | `src/Comments.Web` (`ng test`, Vitest) | 5 | Node 24 | seconds |
+| Frontend | `src/Comments.Web` (`ng test`, Vitest; `ng lint`) | 15 | Node 24 | seconds |
 
 ```bash
 dotnet test tests/Comments.UnitTests
@@ -52,7 +52,7 @@ Running against real engines found defects no unit test could have:
 
 | Defect | Symptom | Fix |
 |---|---|---|
-| ASP.NET JSON depth defaults to 32 | any thread deeper than ~15 levels returned 500 | depth derived from the domain's 64-level cap |
+| ASP.NET JSON depth defaults to 32 | any thread deeper than ~15 levels returned 500 | threads are now sent flat (and paged), so response depth no longer grows with the tree |
 | Increment-based reply counter | a reply saved before its root was indexed was counted twice | re-project from SQL with external versioning |
 | Closing tag of a demoted tag | `<a href="javascript:…">x</a>` refused the whole comment | the closing tag is demoted with its opening |
 | Model-binding errors in PascalCase | the form could not attach `UserName` errors to its `userName` field | camelCase everywhere |

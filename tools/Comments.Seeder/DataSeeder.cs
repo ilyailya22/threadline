@@ -85,7 +85,7 @@ public sealed class DataSeeder(string connectionString)
         var users = new List<SeededUser>(options.Users);
         var baseTime = DateTimeOffset.UtcNow.AddDays(-options.SpreadDays);
 
-        var table = CreateUsersTable();
+        using var table = CreateUsersTable();
 
         await AnsiConsole.Progress()
             .Columns(new TaskDescriptionColumn(), new ProgressBarColumn(), new PercentageColumn(), new SpinnerColumn())
@@ -155,7 +155,7 @@ public sealed class DataSeeder(string connectionString)
         var baseTime = DateTimeOffset.UtcNow.AddDays(-options.SpreadDays);
         var secondsSpan = options.SpreadDays * 86_400L;
 
-        var table = CreateCommentsTable();
+        using var table = CreateCommentsTable();
 
         await AnsiConsole.Progress()
             .Columns(new TaskDescriptionColumn(), new ProgressBarColumn(), new PercentageColumn(), new SpinnerColumn())

@@ -1,3 +1,5 @@
+using Threadline.Comments.Application.Captcha;
+using Threadline.Comments.Domain.Comments;
 using Threadline.Comments.Domain.Users;
 using FluentValidation;
 
@@ -9,8 +11,8 @@ namespace Threadline.Comments.Application.Comments.Commands.CreateComment;
 /// </summary>
 /// <remarks>
 /// The patterns are not duplicated here — they come from the domain value objects, which are also
-/// what the Angular validators are generated from (see <c>docs/VALIDATION.md</c> and the
-/// <c>/api/validation-rules</c> endpoint). One definition, three enforcement points.
+/// what the Angular validators are built from (the <c>/api/validation-rules</c> endpoint). One
+/// definition, three enforcement points.
 /// </remarks>
 public sealed class CreateCommentCommandValidator : AbstractValidator<CreateCommentCommand>
 {
@@ -20,7 +22,7 @@ public sealed class CreateCommentCommandValidator : AbstractValidator<CreateComm
             .NotEmpty().WithMessage("User Name is required.")
             .Length(UserName.MinLength, UserName.MaxLength)
                 .WithMessage($"User Name must be {UserName.MinLength}–{UserName.MaxLength} characters long.")
-            .Matches(Domain.Users.UserName.Pattern)
+            .Matches(UserName.Pattern)
                 .WithMessage("User Name may contain only latin letters and digits.");
 
         RuleFor(x => x.Email)
@@ -36,14 +38,14 @@ public sealed class CreateCommentCommandValidator : AbstractValidator<CreateComm
 
         RuleFor(x => x.Text)
             .NotEmpty().WithMessage("Message text is required.")
-            .MaximumLength(20_000);
+            .MaximumLength(CommentBody.MaxHtmlLength);
 
         RuleFor(x => x.CaptchaId)
             .NotEmpty().WithMessage("CAPTCHA is required.");
 
         RuleFor(x => x.CaptchaAnswer)
             .NotEmpty().WithMessage("CAPTCHA is required.")
-            .Matches("^[A-Za-z0-9]{1,16}$")
+            .Matches(CaptchaAnswerFormat.Pattern)
                 .WithMessage("CAPTCHA may contain only latin letters and digits.");
     }
 }

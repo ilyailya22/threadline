@@ -100,22 +100,17 @@ public sealed class CommentPathTests
     }
 
     [Fact]
-    public void Path_at_the_cap_still_fits_a_sql_server_index_key()
-    {
+    public void Path_at_the_cap_still_fits_a_sql_server_index_key() =>
         // 1700 bytes is the non-clustered index key limit; the column is non-Unicode, so one
         // character is one byte. If this ever fails, IX_Comments_RootId_Path silently stops being
         // creatable — better to learn that here than from a failed migration.
         CommentPath.MaxLength.ShouldBeLessThan(1700 - 16);
-    }
 
     [Theory]
     [InlineData("")]
     [InlineData("tooshort")]
     [InlineData("0123456789abcdef0")]
-    public void Malformed_stored_values_are_rejected(string value)
-    {
-        Should.Throw<DomainException>(() => CommentPath.FromStorage(value));
-    }
+    public void Malformed_stored_values_are_rejected(string value) => Should.Throw<DomainException>(() => CommentPath.FromStorage(value));
 
     [Fact]
     public void A_stored_path_round_trips()

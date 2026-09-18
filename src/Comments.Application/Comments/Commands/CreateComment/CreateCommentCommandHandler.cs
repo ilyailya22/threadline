@@ -36,40 +36,72 @@ public sealed class CreateCommentCommandHandler(
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        // 1. CAPTCHA first: it is the cheapest check that stops the most traffic, and validating it
-        //    before touching the database keeps a bot flood off the connection pool.
+        // CAPTCHA first: it is the cheapest check that stops the most traffic, and validating it
+        // before touching the database keeps a bot flood off the connection pool.
+        await EnsureCaptchaSolvedAsync(request, cancellationToken);
+
+        // Sanitising happens before anything is written, so nothing unsafe can reach storage even if
+        // a later step fails.
+        var text = sanitizer.SanitizeOrThrow(request.Text);
+        var now = clock.UtcNow;
+
+        // The parent is resolved before anything is created, so a reply to a bogus id fails cleanly
+        // instead of leaving an orphan.
+        var parent = await FindParentAsync(request.ParentId, cancellationToken);
+        var author = await ResolveAuthorAsync(request, now, cancellationToken);
+
+        var body = CommentBody.FromSanitized(text.Html, text.PlainText);
+        var fingerprint = ClientFingerprint.Create(client.IpHash, client.UserAgent, client.ClientId);
+        var files = await StageAttachmentAsync(request.Attachment, cancellationToken);
+
+        var comment = parent is null
+            ? Comment.CreateRoot(author, body, fingerprint, now, files)
+            : Comment.CreateReply(author, parent, body, fingerprint, now, files);
+
+        comments.Add(comment);
+
+        // One transaction: the comment, its attachment and the outbox row that will trigger
+        // indexing, thumbnailing and the live update. Either all of it happened or none of it did.
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return new CreateCommentResultDto(
+            comment.Id,
+            comment.RootId,
+            comment.ParentId,
+            comment.CreatedAt,
+            comment.Body.Html);
+    }
+
+    private async Task EnsureCaptchaSolvedAsync(CreateCommentCommand request, CancellationToken cancellationToken)
+    {
         if (!await captcha.ValidateAsync(request.CaptchaId, request.CaptchaAnswer, cancellationToken))
         {
             throw new InputValidationException(
                 "captchaAnswer",
                 "The CAPTCHA answer is incorrect or has expired. Please try again.");
         }
+    }
 
-        // 2. Sanitising happens before anything is written, so nothing unsafe can reach storage even
-        //    if a later step fails.
-        var sanitized = sanitizer.Sanitize(request.Text);
-
-        if (!sanitized.IsValid)
+    private async Task<Comment?> FindParentAsync(Guid? parentId, CancellationToken cancellationToken)
+    {
+        if (parentId is not { } id)
         {
-            throw new InputValidationException(
-                "text",
-                [.. sanitized.Errors.Select(e => e.Message)]);
+            return null;
         }
 
+        return await comments.GetForReplyAsync(id, cancellationToken)
+            ?? throw new NotFoundException(nameof(Comment), id);
+    }
+
+    /// <summary>A visitor is identified by the (user name, e-mail) pair; a new pair is a new user.</summary>
+    private async Task<User> ResolveAuthorAsync(
+        CreateCommentCommand request,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
         var userName = UserName.Create(request.UserName);
         var email = EmailAddress.Create(request.Email);
         var homePage = HomePageUrl.CreateOrNull(request.HomePage);
-        var now = clock.UtcNow;
-
-        // 3. Resolve the parent before creating anything, so a reply to a deleted or bogus id fails
-        //    cleanly instead of leaving an orphan.
-        Comment? parent = null;
-
-        if (request.ParentId is { } parentId)
-        {
-            parent = await comments.GetForReplyAsync(parentId, cancellationToken)
-                ?? throw new NotFoundException("Comment", parentId);
-        }
 
         var author = await users.FindAsync(userName, email, cancellationToken);
 
@@ -80,34 +112,14 @@ public sealed class CreateCommentCommandHandler(
         }
         else
         {
-            author.RecordActivity(homePage, now);
+            author.UpdateHomePage(homePage);
         }
 
-        var body = CommentBody.FromSanitized(sanitized.Value!.Html, sanitized.Value.PlainText);
-
-        var fingerprint = ClientFingerprint.Create(client.IpHash, client.UserAgent, client.ClientId);
-
-        var staged = request.Attachment is null
-            ? null
-            : await attachments.StageAsync(request.Attachment, cancellationToken);
-
-        IEnumerable<Attachment>? files = staged is null ? null : [staged];
-
-        var comment = parent is null
-            ? Comment.CreateRoot(author, body, fingerprint, now, files)
-            : Comment.CreateReply(author, parent, body, fingerprint, now, files);
-
-        comments.Add(comment);
-
-        // 4. One transaction: the comment, its attachment and the outbox row that will trigger
-        //    indexing, thumbnailing and the live update. Either all of it happened or none of it did.
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-
-        return new CreateCommentResultDto(
-            comment.Id,
-            comment.RootId,
-            comment.ParentId,
-            comment.CreatedAt,
-            comment.Body.Html);
+        return author;
     }
+
+    private async Task<IReadOnlyList<Attachment>> StageAttachmentAsync(
+        AttachmentUpload? upload,
+        CancellationToken cancellationToken) =>
+        upload is null ? [] : [await attachments.StageAsync(upload, cancellationToken)];
 }

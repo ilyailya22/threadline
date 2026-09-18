@@ -7,21 +7,6 @@ using Microsoft.Extensions.Options;
 
 namespace Threadline.Comments.Infrastructure.Storage;
 
-public sealed class StorageOptions
-{
-    public const string SectionName = "Storage";
-
-    /// <summary>
-    /// Azurite / connection-string mode, used locally and in tests. Left empty in Azure, where
-    /// <see cref="AccountUrl"/> plus a managed identity is used instead and no secret exists at all.
-    /// </summary>
-    public string? ConnectionString { get; set; }
-
-    public string? AccountUrl { get; set; }
-
-    public string ContainerName { get; set; } = "attachments";
-}
-
 /// <summary>
 /// Azure Blob Storage adapter — the only place in the solution that knows attachments are not on a
 /// local disk.
@@ -73,8 +58,8 @@ public sealed class BlobFileStorage : IFileStorage
                 {
                     ContentType = contentType,
 
-                    // Belt and braces: even if a blob were ever exposed directly, the browser is told
-                    // not to sniff it into something executable.
+                    // Blob paths contain a fresh id per upload, so a stored file never changes and can
+                    // be cached for as long as a browser likes.
                     CacheControl = "private, max-age=31536000, immutable",
                 },
             },
@@ -96,10 +81,4 @@ public sealed class BlobFileStorage : IFileStorage
     public async Task DeleteAsync(string path, CancellationToken cancellationToken = default) =>
         await _container.GetBlobClient(path)
             .DeleteIfExistsAsync(cancellationToken: cancellationToken);
-
-    /// <summary>
-    /// Not a storage URL: attachments are addressed by the API, which then streams them. See the
-    /// class remarks for why.
-    /// </summary>
-    public string GetUrl(string path) => path;
 }

@@ -17,6 +17,9 @@ public sealed class CommentBody : ValueObject
     public const int MaxHtmlLength = 20_000;
     public const int MaxPlainTextLength = 20_000;
 
+    /// <summary>Length of the excerpt shown in the top-level table.</summary>
+    public const int PreviewLength = 200;
+
     private CommentBody(string html, string plainText)
     {
         Html = html;
@@ -42,6 +45,17 @@ public sealed class CommentBody : ValueObject
         }
 
         return new CommentBody(html, plainText[..Math.Min(plainText.Length, MaxPlainTextLength)]);
+    }
+
+    /// <summary>
+    /// The excerpt of a plain-text body shown in the table. Static because read models hold the plain
+    /// text as a string, not as a <see cref="CommentBody"/>; both of them must cut it the same way.
+    /// </summary>
+    public static string ToPreview(string plainText)
+    {
+        ArgumentNullException.ThrowIfNull(plainText);
+
+        return plainText.Length <= PreviewLength ? plainText : string.Concat(plainText.AsSpan(0, PreviewLength), "…");
     }
 
     public override string ToString() => PlainText;

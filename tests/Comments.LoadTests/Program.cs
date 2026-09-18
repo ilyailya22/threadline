@@ -1,5 +1,4 @@
 using System.Net.Http.Json;
-using NBomber.Contracts;
 using NBomber.Contracts.Stats;
 using NBomber.CSharp;
 using NBomber.Http.CSharp;

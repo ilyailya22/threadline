@@ -1,6 +1,4 @@
 using Threadline.Comments.Application.Comments.Dtos;
-using Threadline.Comments.Application.Comments.Sanitization;
-using Threadline.Comments.Application.Common.Exceptions;
 using MediatR;
 
 namespace Threadline.Comments.Application.Comments.Queries.PreviewComment;
@@ -16,21 +14,3 @@ namespace Threadline.Comments.Application.Comments.Queries.PreviewComment;
 /// is always the security-relevant one.
 /// </remarks>
 public sealed record PreviewCommentQuery(string Text) : IRequest<CommentPreviewDto>;
-
-public sealed class PreviewCommentQueryHandler(ICommentTextSanitizer sanitizer)
-    : IRequestHandler<PreviewCommentQuery, CommentPreviewDto>
-{
-    public Task<CommentPreviewDto> Handle(PreviewCommentQuery request, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-
-        var result = sanitizer.Sanitize(request.Text);
-
-        if (!result.IsValid)
-        {
-            throw new InputValidationException("text", [.. result.Errors.Select(e => e.Message)]);
-        }
-
-        return Task.FromResult(new CommentPreviewDto(result.Value!.Html, result.Value.PlainText));
-    }
-}

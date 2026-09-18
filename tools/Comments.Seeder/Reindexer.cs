@@ -34,7 +34,7 @@ internal static class Reindexer
         services.AddSingleton(configuration);
         services.Configure<ElasticsearchOptions>(configuration.GetSection(ElasticsearchOptions.SectionName));
         services.AddSingleton<IDateTimeProvider, Infrastructure.Common.SystemDateTimeProvider>();
-        services.AddSingleton<IAttachmentUrlBuilder, Infrastructure.Storage.AttachmentUrlBuilder>();
+        services.AddSingleton<IAttachmentDtoMapper, Infrastructure.Storage.AttachmentDtoMapper>();
         services.AddDbContext<AppDbContext>(options => options
             .UseSqlServer(connectionString)
             .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking));

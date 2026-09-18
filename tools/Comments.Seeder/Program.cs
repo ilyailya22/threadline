@@ -1,9 +1,5 @@
-using Threadline.Comments.Application.Common.Abstractions;
-using Threadline.Comments.Infrastructure;
 using Threadline.Comments.Seeder;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Spectre.Console;
 
 // Generates the dataset the Middle+ load test runs against:

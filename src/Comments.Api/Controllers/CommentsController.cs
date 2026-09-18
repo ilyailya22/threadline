@@ -51,7 +51,7 @@ public sealed class CommentsController(ISender sender) : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CommentThreadDto>> GetThread(
         Guid rootId,
-        [FromQuery] int maxDepth = Domain.Comments.CommentPath.MaxDepth,
+        [FromQuery] int maxDepth = CommentPath.MaxDepth,
         [FromQuery] int limit = GetCommentThreadQuery.DefaultLimit,
         [FromQuery] string? after = null,
         CancellationToken cancellationToken = default)
@@ -107,44 +107,26 @@ public sealed class CommentsController(ISender sender) : ControllerBase
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        AttachmentUpload? upload = null;
-        Stream? content = null;
+        var file = request.File is { Length: > 0 } posted ? posted : null;
 
-        try
-        {
-            if (request.File is { Length: > 0 } file)
-            {
-                content = file.OpenReadStream();
-                upload = new AttachmentUpload(
-                    file.FileName,
-                    file.ContentType,
-                    file.Length,
-                    content);
-            }
+        await using var content = file?.OpenReadStream();
 
-            var result = await sender.Send(
-                new CreateCommentCommand(
-                    request.UserName,
-                    request.Email,
-                    request.HomePage,
-                    request.Text,
-                    request.ParentId,
-                    request.CaptchaId,
-                    request.CaptchaAnswer,
-                    upload),
-                cancellationToken);
+        var upload = file is null || content is null
+            ? null
+            : new AttachmentUpload(file.FileName, file.ContentType, file.Length, content);
 
-            return CreatedAtAction(
-                nameof(GetThread),
-                new { rootId = result.RootId },
-                result);
-        }
-        finally
-        {
-            if (content is not null)
-            {
-                await content.DisposeAsync();
-            }
-        }
+        var result = await sender.Send(
+            new CreateCommentCommand(
+                request.UserName,
+                request.Email,
+                request.HomePage,
+                request.Text,
+                request.ParentId,
+                request.CaptchaId,
+                request.CaptchaAnswer,
+                upload),
+            cancellationToken);
+
+        return CreatedAtAction(nameof(GetThread), new { rootId = result.RootId }, result);
     }
 }

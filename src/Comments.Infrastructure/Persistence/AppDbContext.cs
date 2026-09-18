@@ -96,7 +96,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, IDateTi
                         ParentId = e.ParentId,
                         AuthorId = e.UserId,
                         Depth = e.Depth,
-                        AttachmentIds = e.AttachmentIds.ToArray(),
+                        AttachmentIds = [.. e.AttachmentIds],
                         CreatedAt = e.CreatedAt,
                     },
                     PayloadJson),

@@ -418,6 +418,5 @@ function toNode(posted: CommentPosted, existing: readonly CommentNode[]): Commen
     textHtml: posted.result.textHtml,
     createdAt: posted.result.createdAt,
     attachments: [],
-    replies: [],
   };
 }

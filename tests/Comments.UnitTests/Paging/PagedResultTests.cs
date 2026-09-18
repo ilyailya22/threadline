@@ -31,14 +31,4 @@ public sealed class PagedResultTests
         result.HasNext.ShouldBeTrue();
         result.HasPrevious.ShouldBeFalse();
     }
-
-    [Theory]
-    [InlineData(400, true)]
-    [InlineData(401, false)]
-    public void The_last_allowed_page_ends_exactly_at_the_ceiling(int page, bool allowed)
-    {
-        var skip = (page - 1) * 25;
-
-        (skip + 25 <= Limits.MaxOffset).ShouldBe(allowed);
-    }
 }

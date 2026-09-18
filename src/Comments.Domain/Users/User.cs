@@ -43,20 +43,24 @@ public sealed class User : Entity
         new(Guid.CreateVersion7(now), userName, email, homePage, now);
 
     /// <summary>
-    /// Called when a known user posts again. The home page is the only mutable field: the user may
-    /// have got a new one since last time, but clearing it accidentally (the field is optional and
-    /// easy to leave blank) must not wipe what we already know.
+    /// Takes the home page a returning user typed. It is the only mutable profile field: the user may
+    /// have a new one since last time, but leaving it blank (the field is optional and easy to skip)
+    /// must not wipe what we already know.
     /// </summary>
-    public void RecordActivity(HomePageUrl? homePage, DateTimeOffset now)
+    public void UpdateHomePage(HomePageUrl? homePage)
     {
         if (homePage is not null)
         {
             HomePage = homePage;
         }
+    }
 
-        if (now > LastPostedAt)
+    /// <summary>Called by <see cref="Comments.Comment"/> whenever this user posts.</summary>
+    internal void RecordPost(DateTimeOffset postedAt)
+    {
+        if (postedAt > LastPostedAt)
         {
-            LastPostedAt = now;
+            LastPostedAt = postedAt;
         }
     }
 }

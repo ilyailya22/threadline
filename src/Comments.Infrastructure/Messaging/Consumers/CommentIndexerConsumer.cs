@@ -1,6 +1,5 @@
 using Threadline.Comments.Application.Common.Abstractions;
 using Threadline.Comments.Infrastructure.Messaging.Contracts;
-using Threadline.Comments.Infrastructure.Persistence;
 using Threadline.Comments.Infrastructure.Search;
 using MassTransit;
 using Microsoft.Extensions.Logging;
@@ -63,52 +62,4 @@ public sealed partial class CommentIndexerConsumer(
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Indexed {Events} events as {Threads} thread projections")]
     private static partial void LogIndexed(ILogger logger, int events, int threads);
-}
-
-/// <summary>
-/// Refreshes a thread's search document once its attachment has been processed.
-/// </summary>
-/// <remarks>
-/// The document is written when the comment is created, while the image is still being downscaled,
-/// so it records the attachment as pending. Without this the table would show "обрабатывается" for
-/// that image indefinitely, even after the thread view shows it ready.
-/// </remarks>
-public sealed class AttachmentIndexRefreshConsumer(
-    AppDbContext context,
-    IDateTimeProvider clock,
-    CommentSearchProjector projector,
-    ICommentCache cache,
-    ILogger<AttachmentIndexRefreshConsumer> logger)
-    : IdempotentConsumer<AttachmentReadyIntegrationEvent>(context, clock, logger)
-{
-    protected override async Task HandleAsync(
-        AttachmentReadyIntegrationEvent message,
-        CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(message);
-
-        // A no-op for replies: the projector ignores anything that is not a thread root.
-        await projector.ProjectAsync(message.CommentId, cancellationToken);
-        await cache.InvalidateTopLevelAsync(cancellationToken);
-    }
-}
-
-public static class CommentIndexerRegistration
-{
-    /// <summary>
-    /// Registers the batching indexer. A batch closes at <see cref="CommentIndexerConsumer.BatchSize"/>
-    /// events or after 100 ms, whichever comes first — so a quiet system still indexes a new comment
-    /// almost immediately, and a busy one amortises the refresh wait across a whole batch.
-    /// </summary>
-    public static IBusRegistrationConfigurator AddCommentIndexer(this IBusRegistrationConfigurator bus)
-    {
-        ArgumentNullException.ThrowIfNull(bus);
-
-        bus.AddConsumer<CommentIndexerConsumer>(consumer => consumer.Options<BatchOptions>(options => options
-            .SetMessageLimit(CommentIndexerConsumer.BatchSize)
-            .SetTimeLimit(TimeSpan.FromMilliseconds(100))
-            .SetConcurrencyLimit(2)));
-
-        return bus;
-    }
 }
