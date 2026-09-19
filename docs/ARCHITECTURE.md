@@ -91,8 +91,8 @@ Three properties fall out of that, and each one is load-bearing:
    per level, no N+1. Because the order is depth-first, the same index also *pages* a thread: the
    cursor is the last node's `(Path, Id)`, and continues exactly where the previous page stopped. `Id`
    breaks ties, because a path segment is a UUID v7 prefix — milliseconds plus 12 random bits — so two
-   replies to one parent in the same millisecond can share it, and every page is a contiguous run of the tree in which each node's
-   parent has already appeared. That mattered in practice — the seeded dataset's hottest thread has
+   replies to one parent in the same millisecond can share it. Every page is a contiguous run of the
+   tree in which each node's parent has already appeared. That mattered in practice — the seeded dataset's hottest thread has
    ~14,000 replies, which as one response was 6.5 MB; paged it is ~47 KB per request.
 
 3. **Building a path requires no reads.** Nested sets need a table rewrite; `hierarchyid` needs to
