@@ -205,7 +205,7 @@ at the end. Conventional Commits throughout — the assignment explicitly says b
 
 ### Phase 8 — Documentation & submission
 - [x] `README.md` — what it is, feature list mapped to every assignment bullet, one-command quick start
-- [ ] Screenshots in the README, and a run-through from a fresh clone — _not done_
+- [x] Screenshots in the README, and a run-through from a fresh clone
 - [x] `docs/ARCHITECTURE.md`, `docs/API.md`, `docs/SECURITY.md`, `docs/TESTING.md`, ADRs
 - [x] `db/schema.mysql.sql` + instructions for opening it in MySQL Workbench
 - [x] `docs/CHECKLIST.md` — every assignment requirement → where it is implemented → how to verify

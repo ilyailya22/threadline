@@ -2,6 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   DestroyRef,
   ElementRef,
   effect,
@@ -66,6 +67,15 @@ export class CommentForm {
    * `toSignal` with an initial value keeps the template free of `| async` and null checks.
    */
   protected readonly rules = toSignal(this.api.getValidationRules(), { initialValue: null });
+
+  /** What the file picker offers — the server's list, so the picker and the check cannot disagree. */
+  protected readonly acceptedExtensions = computed(() => {
+    const attachments = this.rules()?.attachments;
+
+    return attachments
+      ? [...attachments.imageExtensions, ...attachments.textExtensions].join(',')
+      : null;
+  });
 
   protected readonly captcha = signal<CaptchaChallenge | null>(null);
   protected readonly previewHtml = signal<string | null>(null);

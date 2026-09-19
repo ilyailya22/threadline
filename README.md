@@ -17,11 +17,14 @@ Then open **http://localhost:8080**. That is the whole setup — no database to 
 configure, no seed script to remember. First run takes 3–6 minutes while images are pulled and
 built; after that it is seconds.
 
+![The comments table](docs/screenshots/01-table.png)
+
 ---
 
 ## Contents
 
 - [What it does](#what-it-does)
+- [Screenshots](#screenshots)
 - [Stack](#stack)
 - [Architecture in one picture](#architecture-in-one-picture)
 - [Running it](#running-it)
@@ -58,11 +61,45 @@ built; after that it is seconds.
 - Click a row to expand its thread: every reply, nested, to any depth.
 - Attachments open in a lightbox with a fade-and-zoom transition — images inline, text files
   fetched and shown as text.
-- New comments arrive over a WebSocket. They are offered behind a "3 new comments — show" banner
-  rather than being spliced into the table under the reader's cursor.
+- New comments arrive over a WebSocket. They are offered behind a «Новых комментариев: 3 —
+  показать» banner rather than being spliced into the table under the reader's cursor.
 
 **Security** — the assignment calls out XSS and SQL injection specifically; see
 [docs/SECURITY.md](docs/SECURITY.md) for what is done about each.
+
+---
+
+## Screenshots
+
+**A thread, expanded under its row** — replies nest to any depth; the allowed tags render, links
+open safely.
+
+![A thread with nested replies](docs/screenshots/02-thread.png)
+
+**Posting** — the tag toolbar, and a preview rendered by the same sanitiser that will process the
+real submission.
+
+![The form with a preview](docs/screenshots/03-form-preview.png)
+
+**Validation** — the client builds its checks from the rules the server publishes: latin-only user
+name, e-mail format, http(s)-only home page, closed tags, CAPTCHA.
+
+![Validation errors](docs/screenshots/04-validation.png)
+
+**Attachments** — a 1600×1000 upload, downscaled proportionally to fit 320×240, in the lightbox.
+
+![The lightbox](docs/screenshots/05-lightbox.png)
+
+**Sorting** — by e-mail, ascending, page 3; the state lives in the URL.
+
+![Sorted by e-mail](docs/screenshots/06-sorted-by-email.png)
+
+**Phone, dark theme** — the table becomes cards below tablet width; the theme follows the system.
+
+<img src="docs/screenshots/07-mobile-dark.png" alt="Phone layout, dark theme" width="320">
+
+The data is a 60,000-comment seed (`tools/Comments.Seeder`) with a few hand-written comments on
+top; the XSS attempt in the table is shown as text, which is the point.
 
 ---
 
