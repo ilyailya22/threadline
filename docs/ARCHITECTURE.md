@@ -86,10 +86,12 @@ Three properties fall out of that, and each one is load-bearing:
    database returns a thread already in the order the page renders it. No sorting in application
    code, no re-assembly pass beyond building the parent/child links.
 
-2. **A thread is one indexed range scan** — `WHERE RootId = @id ORDER BY Path`, covered by
-   `IX_Comments_RootId_Path`. No recursive CTE, no query per level, no N+1. Because the order is
-   depth-first, the same index also *pages* a thread: `AND Path > @cursor` continues exactly where
-   the previous page stopped, and every page is a contiguous run of the tree in which each node's
+2. **A thread is one indexed range scan** — `WHERE RootId = @id ORDER BY Path, Id`, covered by
+   `IX_Comments_RootId_Path` (the clustered `Id` is part of every index). No recursive CTE, no query
+   per level, no N+1. Because the order is depth-first, the same index also *pages* a thread: the
+   cursor is the last node's `(Path, Id)`, and continues exactly where the previous page stopped. `Id`
+   breaks ties, because a path segment is a UUID v7 prefix — milliseconds plus 12 random bits — so two
+   replies to one parent in the same millisecond can share it, and every page is a contiguous run of the tree in which each node's
    parent has already appeared. That mattered in practice — the seeded dataset's hottest thread has
    ~14,000 replies, which as one response was 6.5 MB; paged it is ~47 KB per request.
 

@@ -17,7 +17,8 @@ import type {
 
 export interface TopLevelQuery {
   readonly page: number;
-  readonly pageSize: number;
+  /** Omitted: the server's default, 25, which is what the assignment fixes. */
+  readonly pageSize?: number;
   readonly sortBy: CommentSortField;
   readonly direction: SortDirection;
   readonly search?: string | null;
@@ -57,9 +58,12 @@ export class CommentsApi {
   getTopLevel(query: TopLevelQuery): Observable<PagedResult<CommentListItem>> {
     let params = new HttpParams()
       .set('page', query.page)
-      .set('pageSize', query.pageSize)
       .set('sortBy', query.sortBy)
       .set('direction', query.direction);
+
+    if (query.pageSize) {
+      params = params.set('pageSize', query.pageSize);
+    }
 
     if (query.search) {
       params = params.set('search', query.search);

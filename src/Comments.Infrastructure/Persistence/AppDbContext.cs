@@ -1,10 +1,8 @@
-using System.Text.Json;
 using Threadline.Comments.Application.Common.Abstractions;
 using Threadline.Comments.Domain.Comments;
-using Threadline.Comments.Domain.Comments.Events;
 using Threadline.Comments.Domain.Common;
 using Threadline.Comments.Domain.Users;
-using Threadline.Comments.Infrastructure.Messaging.Contracts;
+using Threadline.Comments.Infrastructure.Messaging;
 using Threadline.Comments.Infrastructure.Persistence.Outbox;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,11 +11,9 @@ namespace Threadline.Comments.Infrastructure.Persistence;
 /// <summary>
 /// The write-side database context and the implementation of <see cref="IUnitOfWork"/>.
 /// </summary>
-public sealed class AppDbContext(DbContextOptions<AppDbContext> options, IDateTimeProvider clock)
+public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     : DbContext(options), IUnitOfWork
 {
-    private static readonly JsonSerializerOptions PayloadJson = new(JsonSerializerDefaults.Web);
-
     public DbSet<User> Users => Set<User>();
 
     public DbSet<Comment> Comments => Set<Comment>();
@@ -56,51 +52,17 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, IDateTi
             .Select(e => e.Entity)
             .ToArray();
 
-        if (entities.Length == 0)
-        {
-            return;
-        }
-
-        var now = clock.UtcNow;
-
         foreach (var entity in entities)
         {
             foreach (var domainEvent in entity.DomainEvents)
             {
-                var message = ToOutboxMessage(domainEvent, now);
-
-                if (message is not null)
+                if (IntegrationEvents.From(domainEvent) is { } integrationEvent)
                 {
-                    OutboxMessages.Add(message);
+                    OutboxMessages.Add(OutboxMessage.For(domainEvent.EventId, integrationEvent, domainEvent.OccurredAt));
                 }
             }
 
             entity.ClearDomainEvents();
         }
     }
-
-    private static OutboxMessage? ToOutboxMessage(IDomainEvent domainEvent, DateTimeOffset now) =>
-        domainEvent switch
-        {
-            CommentCreatedDomainEvent e => new OutboxMessage
-            {
-                Id = e.EventId,
-                Type = nameof(CommentCreatedIntegrationEvent),
-                OccurredAt = now,
-                Payload = JsonSerializer.Serialize(
-                    new CommentCreatedIntegrationEvent
-                    {
-                        EventId = e.EventId,
-                        CommentId = e.CommentId,
-                        RootId = e.RootId,
-                        ParentId = e.ParentId,
-                        AuthorId = e.UserId,
-                        Depth = e.Depth,
-                        AttachmentIds = [.. e.AttachmentIds],
-                        CreatedAt = e.CreatedAt,
-                    },
-                    PayloadJson),
-            },
-            _ => null,
-        };
 }

@@ -18,7 +18,7 @@ public sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<Outbox
         builder.Property(m => m.Type).HasMaxLength(200).IsUnicode(false).IsRequired();
         builder.Property(m => m.Payload).IsRequired();
         builder.Property(m => m.OccurredAt).IsRequired();
-        builder.Property(m => m.Error).HasMaxLength(2000);
+        builder.Property(m => m.Error).HasMaxLength(OutboxMessage.MaxErrorLength);
 
         // The publisher's only query: "give me the next batch of unprocessed messages that are due".
         // Filtered on ProcessedAt IS NULL, so the index shrinks back to near-empty as the queue

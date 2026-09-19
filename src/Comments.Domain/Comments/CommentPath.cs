@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Threadline.Comments.Domain.Common;
 
 namespace Threadline.Comments.Domain.Comments;
@@ -25,7 +26,7 @@ namespace Threadline.Comments.Domain.Comments;
 /// already in display order.
 /// </para>
 /// </remarks>
-public sealed class CommentPath : ValueObject, IComparable<CommentPath>
+public sealed partial class CommentPath : ValueObject
 {
     public const int SegmentLength = 16;
 
@@ -45,12 +46,6 @@ public sealed class CommentPath : ValueObject, IComparable<CommentPath>
     /// <summary>1 for a top-level comment, 2 for a direct reply, and so on.</summary>
     public int Depth => Value.Length / SegmentLength;
 
-    public bool IsRoot => Depth == 1;
-
-    /// <summary>The path prefix identifying every ancestor, or <see langword="null"/> at the root.</summary>
-    public CommentPath? Parent =>
-        IsRoot ? null : new CommentPath(Value[..^SegmentLength]);
-
     public static CommentPath ForRoot(Guid commentId) => new(Segment(commentId));
 
     public static CommentPath ForReply(CommentPath parentPath, Guid commentId)
@@ -69,52 +64,17 @@ public sealed class CommentPath : ValueObject, IComparable<CommentPath>
     /// <summary>Rehydrates a path read back from the database.</summary>
     public static CommentPath FromStorage(string value)
     {
+        // Checked in full, not just for length: a path also arrives from clients, as a paging cursor.
         if (string.IsNullOrEmpty(value)
             || value.Length % SegmentLength != 0
-            || value.Length > MaxLength)
+            || value.Length > MaxLength
+            || !LowercaseHex().IsMatch(value))
         {
             throw new DomainException($"'{value}' is not a valid comment path.");
         }
 
         return new CommentPath(value);
     }
-
-    /// <summary>
-    /// Prefix used by <c>LIKE @prefix + '%'</c> subtree queries. Kept as a method rather than a raw
-    /// string so callers cannot accidentally build the pattern themselves and forget to escape it.
-    /// </summary>
-    public string ToSubtreePrefix() => Value;
-
-    public bool IsDescendantOf(CommentPath other)
-    {
-        ArgumentNullException.ThrowIfNull(other);
-
-        return Value.Length > other.Value.Length
-            && Value.StartsWith(other.Value, StringComparison.Ordinal);
-    }
-
-    public int CompareTo(CommentPath? other) =>
-        other is null ? 1 : string.CompareOrdinal(Value, other.Value);
-
-    public static bool operator ==(CommentPath? left, CommentPath? right) => Equals(left, right);
-
-    public static bool operator !=(CommentPath? left, CommentPath? right) => !Equals(left, right);
-
-    public static bool operator <(CommentPath? left, CommentPath? right) =>
-        left is null ? right is not null : left.CompareTo(right) < 0;
-
-    public static bool operator <=(CommentPath? left, CommentPath? right) =>
-        left is null || left.CompareTo(right) <= 0;
-
-    public static bool operator >(CommentPath? left, CommentPath? right) =>
-        left is not null && left.CompareTo(right) > 0;
-
-    public static bool operator >=(CommentPath? left, CommentPath? right) =>
-        left is null ? right is null : left.CompareTo(right) >= 0;
-
-    public override bool Equals(object? obj) => base.Equals(obj);
-
-    public override int GetHashCode() => base.GetHashCode();
 
     public override string ToString() => Value;
 
@@ -134,4 +94,7 @@ public sealed class CommentPath : ValueObject, IComparable<CommentPath>
         // timestamp (48 bits) + version + rand_a, so the prefix is monotonic in creation time.
         return commentId.ToString("N")[..SegmentLength];
     }
+
+    [GeneratedRegex("^[0-9a-f]+$", RegexOptions.CultureInvariant)]
+    private static partial Regex LowercaseHex();
 }

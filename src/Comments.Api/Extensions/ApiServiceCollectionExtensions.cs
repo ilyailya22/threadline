@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Threadline.Comments.Api.GraphQL;
+using Threadline.Comments.Api.Middleware;
 using Threadline.Comments.Api.Services;
 using Threadline.Comments.Application.Captcha;
 using Threadline.Comments.Application.Common;
@@ -227,7 +228,7 @@ public static class ApiServiceCollectionExtensions
         return new BadRequestObjectResult(new ValidationProblemDetails(errors)
         {
             Status = StatusCodes.Status400BadRequest,
-            Title = "One or more validation errors occurred",
+            Title = GlobalExceptionHandler.ValidationTitle,
         });
     }
 }

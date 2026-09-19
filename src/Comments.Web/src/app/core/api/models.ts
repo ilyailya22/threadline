@@ -59,6 +59,12 @@ export interface CommentTreeNode extends CommentNode {
   readonly replies: readonly CommentTreeNode[];
 }
 
+/** Pushed when the worker has finished processing an attachment. */
+export interface AttachmentReadyEvent {
+  readonly commentId: string;
+  readonly attachment: Attachment;
+}
+
 /** One page of a thread: a flat, depth-first list the client assembles into a tree. */
 export interface CommentThread {
   readonly rootId: string;

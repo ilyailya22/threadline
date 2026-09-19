@@ -22,7 +22,9 @@ import type {
   ValidationRules,
 } from '../../../core/api/models';
 import { SanitizedHtmlPipe } from '../../../shared/sanitized-html.pipe';
+import { checkAttachment, describeImageSize } from './attachment-check';
 import { balancedTagsValidator, httpUrlValidator, validatorsFor } from './comment-form.validators';
+import { identityStorage, type Identity } from './identity-storage';
 
 /** A tag button on the markup toolbar. */
 interface TagButton {
@@ -93,7 +95,11 @@ export class CommentForm {
 
     // Remembering who you are between comments is the difference between a board people use and
     // one they post to once. Only the identity fields are stored, never the message.
-    this.restoreIdentity();
+    const remembered = identityStorage.read();
+
+    if (remembered) {
+      this.form.patchValue(remembered);
+    }
 
     this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => {
       this.serverError.set(null);
@@ -197,57 +203,29 @@ export class CommentForm {
     this.previewHtml.set(null);
   }
 
-  /**
-   * Validates a chosen file in the browser before it is ever uploaded.
-   *
-   * The server validates again and is the authority — this exists so a person on a slow connection
-   * finds out that their 12 MB photo is too large before waiting for the upload, not after.
-   */
+  /** Checks a chosen file in the browser before it is ever uploaded — see `checkAttachment`. */
   protected async onFileSelected(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
+    const rules = this.rules()?.attachments;
 
     this.revokeUrls();
     this.selected.set(null);
     this.fileError.set(null);
 
-    if (!file) {
+    if (!file || !rules) {
       return;
     }
 
-    const rules = this.rules();
+    const check = checkAttachment(file, rules);
 
-    if (!rules) {
-      return;
-    }
-
-    const extension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
-    const isImage = rules.attachments.imageExtensions.includes(extension);
-    const isText = rules.attachments.textExtensions.includes(extension);
-
-    if (!isImage && !isText) {
-      this.fileError.set('Допустимы только JPG, GIF, PNG и TXT.');
+    if (!check.ok) {
+      this.fileError.set(check.error);
       input.value = '';
       return;
     }
 
-    if (isText && file.size > rules.attachments.maxTextFileBytes) {
-      this.fileError.set(
-        `Текстовый файл не должен превышать ${rules.attachments.maxTextFileBytes / 1024} КБ.`,
-      );
-      input.value = '';
-      return;
-    }
-
-    if (isImage && file.size > rules.attachments.maxImageUploadBytes) {
-      this.fileError.set(
-        `Изображение не должно превышать ${Math.round(rules.attachments.maxImageUploadBytes / (1024 * 1024))} МБ.`,
-      );
-      input.value = '';
-      return;
-    }
-
-    if (!isImage) {
+    if (check.kind === 'text') {
       this.selected.set({ file });
       return;
     }
@@ -255,18 +233,11 @@ export class CommentForm {
     const previewUrl = URL.createObjectURL(file);
     const size = await readImageSize(previewUrl);
 
-    // Oversized images are accepted, not rejected: the assignment says they must be scaled down.
-    // Telling the user it will happen avoids the surprise of a smaller picture than they uploaded.
-    const note =
-      size &&
-      (size.width > rules.attachments.maxImageWidth ||
-        size.height > rules.attachments.maxImageHeight)
-        ? `${size.width}×${size.height} → будет уменьшено до ${rules.attachments.maxImageWidth}×${rules.attachments.maxImageHeight}`
-        : size
-          ? `${size.width}×${size.height}`
-          : undefined;
-
-    this.selected.set({ file, previewUrl, note });
+    this.selected.set({
+      file,
+      previewUrl,
+      note: size ? describeImageSize(size, rules) : undefined,
+    });
   }
 
   protected clearFile(fileInput: HTMLInputElement): void {
@@ -289,12 +260,16 @@ export class CommentForm {
     this.serverError.set(null);
 
     const value = this.form.getRawValue();
+    const identity: Identity = {
+      userName: value.userName.trim(),
+      email: value.email.trim(),
+      homePage: value.homePage.trim(),
+    };
 
     this.api
       .create({
-        userName: value.userName.trim(),
-        email: value.email.trim(),
-        homePage: value.homePage.trim() || null,
+        ...identity,
+        homePage: identity.homePage || null,
         text: value.text,
         parentId: this.parentId(),
         captchaId: challenge.id,
@@ -305,15 +280,11 @@ export class CommentForm {
       .subscribe({
         next: (result) => {
           this.submitting.set(false);
-          this.rememberIdentity();
+          identityStorage.write(identity);
           this.resetAfterSubmit();
           this.created.emit({
             result,
-            author: {
-              userName: value.userName.trim(),
-              email: value.email.trim(),
-              homePage: value.homePage.trim() || null,
-            },
+            author: { ...identity, homePage: identity.homePage || null },
           });
         },
         error: (error: HttpErrorResponse) => {
@@ -405,29 +376,6 @@ export class CommentForm {
     this.revokeUrls();
     this.selected.set(null);
     this.refreshCaptcha();
-  }
-
-  private rememberIdentity(): void {
-    const { userName, email, homePage } = this.form.getRawValue();
-
-    try {
-      localStorage.setItem('dzc.identity', JSON.stringify({ userName, email, homePage }));
-    } catch {
-      // Private browsing or a full quota. Remembering the name is a convenience, not a feature to
-      // fail a submission over.
-    }
-  }
-
-  private restoreIdentity(): void {
-    try {
-      const raw = localStorage.getItem('dzc.identity');
-
-      if (raw) {
-        this.form.patchValue(JSON.parse(raw) as Partial<typeof this.form.value>);
-      }
-    } catch {
-      // Ignore malformed or unavailable storage.
-    }
   }
 
   private revokeUrls(): void {
