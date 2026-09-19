@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Comments.Application\Comments.Application.csproj" />
+    <ProjectReference Include="..\..\src\Comments.Infrastructure\Comments.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

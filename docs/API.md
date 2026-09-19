@@ -62,13 +62,13 @@ dataset has one with ~14,000 replies — so the endpoint pages on the materialis
 | Query | Default | Values |
 |---|---|---|
 | `limit` | `100` | 1–500 |
-| `after` | — | the previous page's `nextCursor` |
+| `after` | — | the previous page's `nextCursor` — opaque: pass it back unchanged |
 | `maxDepth` | `64` | 1–64 |
 
 ```json
 {
   "rootId": "…", "totalCount": 13859, "hasMore": true,
-  "nextCursor": "019ee433dcaf7cec019ee5a2…",
+  "nextCursor": "019ee433dcaf7cec019ee5a2….019ee5a2…",
   "nodes": [
     { "id": "…", "parentId": null, "rootId": "…", "depth": 1, "author": {…}, "textHtml": "…", "createdAt": "…", "attachments": [] },
     { "id": "…", "parentId": "…", "rootId": "…", "depth": 2, … }

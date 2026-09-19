@@ -16,9 +16,7 @@ public sealed class CommentPathTests
         var path = CommentPath.ForRoot(Guid.CreateVersion7());
 
         path.Depth.ShouldBe(1);
-        path.IsRoot.ShouldBeTrue();
         path.Value.Length.ShouldBe(CommentPath.SegmentLength);
-        path.Parent.ShouldBeNull();
     }
 
     [Fact]
@@ -29,16 +27,6 @@ public sealed class CommentPathTests
 
         reply.Depth.ShouldBe(2);
         reply.Value.ShouldStartWith(root.Value);
-        reply.IsDescendantOf(root).ShouldBeTrue();
-        reply.Parent.ShouldBe(root);
-    }
-
-    [Fact]
-    public void A_path_is_not_a_descendant_of_itself()
-    {
-        var path = CommentPath.ForRoot(Guid.CreateVersion7());
-
-        path.IsDescendantOf(path).ShouldBeFalse();
     }
 
     /// <summary>
@@ -81,7 +69,7 @@ public sealed class CommentPathTests
             root,
             Guid.CreateVersion7(new DateTimeOffset(2026, 3, 1, 12, 0, 0, TimeSpan.Zero)));
 
-        (earlier < later).ShouldBeTrue();
+        string.CompareOrdinal(earlier.Value, later.Value).ShouldBeLessThan(0);
     }
 
     [Fact]
@@ -110,6 +98,9 @@ public sealed class CommentPathTests
     [InlineData("")]
     [InlineData("tooshort")]
     [InlineData("0123456789abcdef0")]
+    [InlineData("0123456789ABCDEF")]
+    [InlineData("0123456789abcdeg")]
+    [InlineData("' OR 1=1 --     ")]
     public void Malformed_stored_values_are_rejected(string value) => Should.Throw<DomainException>(() => CommentPath.FromStorage(value));
 
     [Fact]

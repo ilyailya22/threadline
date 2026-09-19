@@ -3,6 +3,8 @@ using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
+using Threadline.Comments.Domain.Comments;
+using Threadline.Comments.Domain.Users;
 
 namespace Threadline.Comments.Application.Comments.Sanitization;
 
@@ -43,8 +45,12 @@ public sealed partial class CommentTextSanitizer : ICommentTextSanitizer
     private static readonly string[] AllowedLinkSchemes =
         [Uri.UriSchemeHttp, Uri.UriSchemeHttps, Uri.UriSchemeMailto];
 
-    private const int MaxRawLength = 20_000;
+    private const int MaxRawLength = CommentBody.MaxHtmlLength;
     private const int MaxNestingDepth = 16;
+    private const int MaxTitleLength = 256;
+    private const int MaxHrefLength = HomePageUrl.MaxLength;
+
+    private static readonly SanitizationError Required = new("text.required", "Message text is required.");
 
     public SanitizationResult Sanitize(string? rawText)
     {
@@ -52,8 +58,7 @@ public sealed partial class CommentTextSanitizer : ICommentTextSanitizer
 
         if (input.Length == 0)
         {
-            return SanitizationResult.Failure(
-                new SanitizationError("text.required", "Message text is required."));
+            return SanitizationResult.Failure(Required);
         }
 
         if (input.Length > MaxRawLength)
@@ -117,8 +122,7 @@ public sealed partial class CommentTextSanitizer : ICommentTextSanitizer
         var plainText = plain.ToString().Trim();
 
         return plainText.Length == 0
-            ? SanitizationResult.Failure(
-                new SanitizationError("text.required", "Message text is required."))
+            ? SanitizationResult.Failure(Required)
             : SanitizationResult.Success(result, plainText);
     }
 
@@ -130,65 +134,86 @@ public sealed partial class CommentTextSanitizer : ICommentTextSanitizer
         List<SanitizationError> errors)
     {
         var close = ClosingTag().Match(tag);
+
         if (close.Success)
         {
-            var name = close.Groups["name"].Value.ToLowerInvariant();
-
-            if (!AllowedTags.Contains(name))
-            {
-                AppendEscaped(tag, html);
-                return;
-            }
-
-            // Demoted openings that were never closed are just text; they must not stand between a
-            // real closing tag and the real opening it belongs to.
-            while (openTags.Count > 0 && openTags.Peek().Demoted && openTags.Peek().Name != name)
-            {
-                openTags.Pop();
-            }
-
-            if (openTags.Count == 0 || openTags.Peek().Name != name)
-            {
-                errors.Add(new SanitizationError(
-                    "text.unexpected_closing_tag",
-                    openTags.Count == 0
-                        ? $"Closing tag </{name}> has no matching opening tag."
-                        : $"Closing tag </{name}> does not match the still-open <{openTags.Peek().Name}>.",
-                    position));
-                return;
-            }
-
-            var opening = openTags.Pop();
-
-            // The partner of a demoted opening is demoted too. Without this,
-            // <a href="javascript:…">x</a> would escape the opening tag and then reject the whole
-            // comment because the closing one looked orphaned — punishing the user for markup we
-            // had already made harmless.
-            if (opening.Demoted)
-            {
-                AppendEscaped(tag, html);
-            }
-            else
-            {
-                html.Append("</").Append(name).Append('>');
-            }
-
+            HandleClosingTag(tag, close.Groups["name"].Value.ToLowerInvariant(), position, html, openTags, errors);
             return;
         }
 
         var open = OpeningTag().Match(tag);
-        if (!open.Success)
+
+        if (open.Success)
         {
-            // Not a tag we recognise (<script>, <br>, <3, "a < b" …) — show it as text.
-            AppendEscaped(tag, html);
+            HandleOpeningTag(tag, open, position, html, openTags, errors);
             return;
         }
 
+        // Not a tag we recognise (<script>, <br>, <3, "a < b" …) — show it as text.
+        AppendEncoded(tag, html);
+    }
+
+    private static void HandleClosingTag(
+        string tag,
+        string name,
+        int position,
+        StringBuilder html,
+        Stack<OpenTag> openTags,
+        List<SanitizationError> errors)
+    {
+        if (!AllowedTags.Contains(name))
+        {
+            AppendEncoded(tag, html);
+            return;
+        }
+
+        // Demoted openings that were never closed are just text; they must not stand between a
+        // real closing tag and the real opening it belongs to.
+        while (openTags.Count > 0 && openTags.Peek().Demoted && openTags.Peek().Name != name)
+        {
+            openTags.Pop();
+        }
+
+        if (openTags.Count == 0 || openTags.Peek().Name != name)
+        {
+            errors.Add(new SanitizationError(
+                "text.unexpected_closing_tag",
+                openTags.Count == 0
+                    ? $"Closing tag </{name}> has no matching opening tag."
+                    : $"Closing tag </{name}> does not match the still-open <{openTags.Peek().Name}>.",
+                position));
+            return;
+        }
+
+        var opening = openTags.Pop();
+
+        // The partner of a demoted opening is demoted too. Without this,
+        // <a href="javascript:…">x</a> would escape the opening tag and then reject the whole
+        // comment because the closing one looked orphaned — punishing the user for markup we had
+        // already made harmless.
+        if (opening.Demoted)
+        {
+            AppendEncoded(tag, html);
+        }
+        else
+        {
+            html.Append("</").Append(name).Append('>');
+        }
+    }
+
+    private static void HandleOpeningTag(
+        string tag,
+        Match open,
+        int position,
+        StringBuilder html,
+        Stack<OpenTag> openTags,
+        List<SanitizationError> errors)
+    {
         var tagName = open.Groups["name"].Value.ToLowerInvariant();
 
         if (!AllowedTags.Contains(tagName))
         {
-            AppendEscaped(tag, html);
+            AppendEncoded(tag, html);
             return;
         }
 
@@ -218,7 +243,7 @@ public sealed partial class CommentTextSanitizer : ICommentTextSanitizer
         {
             // Bad attributes make the tag untrusted; degrade it to text rather than dropping data,
             // and remember it so its closing tag is degraded the same way.
-            AppendEscaped(tag, html);
+            AppendEncoded(tag, html);
 
             if (!selfClosing)
             {
@@ -239,9 +264,6 @@ public sealed partial class CommentTextSanitizer : ICommentTextSanitizer
             openTags.Push(new OpenTag(tagName, Demoted: false));
         }
     }
-
-    /// <summary>An allowed tag that has been opened; <see cref="Demoted"/> when it was escaped to text.</summary>
-    private sealed record OpenTag(string Name, bool Demoted);
 
     /// <summary>
     /// Rebuilds the attribute list from scratch instead of copying the user's. Anything not on the
@@ -309,7 +331,7 @@ public sealed partial class CommentTextSanitizer : ICommentTextSanitizer
                         return false;
                     }
 
-                    title = value.Length > 256 ? value[..256] : value;
+                    title = value.Length > MaxTitleLength ? value[..MaxTitleLength] : value;
                     break;
             }
         }
@@ -324,11 +346,11 @@ public sealed partial class CommentTextSanitizer : ICommentTextSanitizer
             return false;
         }
 
-        var builder = new StringBuilder(" href=\"").Append(EscapeAttribute(href)).Append('"');
+        var builder = new StringBuilder(" href=\"").Append(EncodeAttribute(href)).Append('"');
 
         if (!string.IsNullOrWhiteSpace(title))
         {
-            builder.Append(" title=\"").Append(EscapeAttribute(title)).Append('"');
+            builder.Append(" title=\"").Append(EncodeAttribute(title)).Append('"');
         }
 
         // Defence in depth for stored links pointing at third-party sites.
@@ -344,7 +366,7 @@ public sealed partial class CommentTextSanitizer : ICommentTextSanitizer
 
         var candidate = value.Trim();
 
-        if (candidate.Length is 0 or > 2048)
+        if (candidate.Length is 0 or > MaxHrefLength)
         {
             return false;
         }
@@ -359,61 +381,49 @@ public sealed partial class CommentTextSanitizer : ICommentTextSanitizer
         return true;
     }
 
+    /// <summary>Text between tags: shown encoded, and kept as-is in the plain-text projection.</summary>
     private static void AppendText(ReadOnlySpan<char> text, StringBuilder html, StringBuilder plain)
     {
-        foreach (var c in text)
-        {
-            switch (c)
-            {
-                case '<':
-                    html.Append("&lt;");
-                    break;
-                case '>':
-                    html.Append("&gt;");
-                    break;
-                case '&':
-                    html.Append("&amp;");
-                    break;
-                case '"':
-                    html.Append("&quot;");
-                    break;
-                case '\'':
-                    html.Append("&#39;");
-                    break;
-                default:
-                    html.Append(c);
-                    break;
-            }
-
-            plain.Append(c);
-        }
+        AppendEncoded(text, html);
+        plain.Append(text);
     }
 
-    private static void AppendEscaped(string text, StringBuilder html)
+    /// <summary>
+    /// The one HTML encoder in this class, used for text, for markup demoted to text and for
+    /// attribute values. Disallowed markup goes through here but not into the plain-text
+    /// projection, so search results are not polluted with the user's failed <c>&lt;script&gt;</c>.
+    /// </summary>
+    private static void AppendEncoded(ReadOnlySpan<char> text, StringBuilder html)
     {
-        // Disallowed markup is shown, not executed — and it is not added to the plain-text
-        // projection, so search results are not polluted with the user's failed <script> attempts.
         foreach (var c in text)
         {
-            html.Append(c switch
+            var entity = c switch
             {
                 '<' => "&lt;",
                 '>' => "&gt;",
                 '&' => "&amp;",
                 '"' => "&quot;",
                 '\'' => "&#39;",
-                _ => c.ToString(),
-            });
+                _ => null,
+            };
+
+            if (entity is null)
+            {
+                html.Append(c);
+            }
+            else
+            {
+                html.Append(entity);
+            }
         }
     }
 
-    private static string EscapeAttribute(string value) =>
-        value
-            .Replace("&", "&amp;", StringComparison.Ordinal)
-            .Replace("<", "&lt;", StringComparison.Ordinal)
-            .Replace(">", "&gt;", StringComparison.Ordinal)
-            .Replace("\"", "&quot;", StringComparison.Ordinal)
-            .Replace("'", "&#39;", StringComparison.Ordinal);
+    private static string EncodeAttribute(string value)
+    {
+        var encoded = new StringBuilder(value.Length + 16);
+        AppendEncoded(value, encoded);
+        return encoded.ToString();
+    }
 
     private static bool IsWellFormedXhtml(string html, out string? error)
     {
@@ -444,6 +454,9 @@ public sealed partial class CommentTextSanitizer : ICommentTextSanitizer
             return false;
         }
     }
+
+    /// <summary>An allowed tag that has been opened; <see cref="Demoted"/> when it was escaped to text.</summary>
+    private sealed record OpenTag(string Name, bool Demoted);
 
     /// <summary>Matches anything that looks like a tag: <c>&lt;…&gt;</c> with no nested angle brackets.</summary>
     [GeneratedRegex("<[^<>]*>", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 500)]

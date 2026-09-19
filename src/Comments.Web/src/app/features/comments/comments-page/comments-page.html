@@ -79,11 +79,11 @@
         @for (item of result()?.items ?? []; track item.id) {
           <tr
             class="table__row"
-            [class.table__row--open]="openThreadId() === item.id"
-            (click)="toggleThread(item.id)"
+            [class.table__row--open]="thread.rootId() === item.id"
+            (click)="thread.toggle(item.id)"
             tabindex="0"
-            (keydown.enter)="toggleThread(item.id)"
-            (keydown.space)="toggleThread(item.id)"
+            (keydown.enter)="thread.toggle(item.id)"
+            (keydown.space)="thread.toggle(item.id)"
           >
             <td data-label="User Name">
               <span class="table__user">
@@ -111,30 +111,30 @@
             <td data-label="Ответов" class="table__numeric">{{ item.replyCount }}</td>
           </tr>
 
-          @if (openThreadId() === item.id) {
+          @if (thread.rootId() === item.id) {
             <tr class="table__thread-row">
               <td [attr.colspan]="5">
-                @if (threadTree(); as tree) {
+                @if (thread.tree(); as tree) {
                   <app-comment-node [comment]="tree" (replied)="onReplied($event)" />
 
-                  @if (threadCursor()) {
+                  @if (thread.cursor()) {
                     <!-- Threads are paged: a popular one has thousands of replies. -->
                     <button
                       type="button"
                       class="thread-more"
-                      [disabled]="threadLoading()"
-                      (click)="loadMoreThread()"
+                      [disabled]="thread.loading()"
+                      (click)="thread.loadMore()"
                     >
-                      @if (threadLoading()) {
+                      @if (thread.loading()) {
                         Загрузка…
                       } @else {
-                        Показать ещё ({{ threadRemaining() }})
+                        Показать ещё ({{ thread.remaining() }})
                       }
                     </button>
                   }
-                } @else if (threadLoading()) {
+                } @else if (thread.loading()) {
                   <p class="table__loading">Загрузка ветки…</p>
-                } @else if (threadError()) {
+                } @else if (thread.failed()) {
                   <p class="table__loading">Не удалось загрузить ветку.</p>
                 }
               </td>

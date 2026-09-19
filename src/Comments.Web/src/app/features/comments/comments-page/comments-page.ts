@@ -8,13 +8,13 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, type ParamMap } from '@angular/router';
 
 import { CommentsApi } from '../../../core/api/comments-api';
 import type {
   CommentListItem,
-  CommentPosted,
   CommentNode,
+  CommentPosted,
   CommentSortField,
   PagedResult,
   SortDirection,
@@ -22,23 +22,35 @@ import type {
 import { CommentsRealtime } from '../../../core/realtime/comments-realtime';
 import { RelativeTimePipe } from '../../../shared/relative-time.pipe';
 import { SanitizedHtmlPipe } from '../../../shared/sanitized-html.pipe';
-import { buildThreadTree, mergeNodes } from '../../../shared/thread-tree';
 import { AttachmentView } from '../attachment-view/attachment-view';
 import { CommentForm } from '../comment-form/comment-form';
 import { CommentNodeComponent } from '../comment-node/comment-node';
-
-const PAGE_SIZE = 25;
+import { OpenThread } from './open-thread';
 
 interface SortColumn {
   readonly field: CommentSortField;
   readonly label: string;
 }
 
+const SORT_FIELDS: readonly CommentSortField[] = ['userName', 'email', 'createdAt'];
+const DIRECTIONS: readonly SortDirection[] = ['ascending', 'descending'];
+
+/** The table's state as the URL holds it. */
+interface ListState {
+  readonly page: number;
+  readonly sortBy: CommentSortField;
+  readonly direction: SortDirection;
+}
+
+/** LIFO by default, exactly as the assignment specifies. */
+const DEFAULT_STATE: ListState = { page: 1, sortBy: 'createdAt', direction: 'descending' };
+
 @Component({
   selector: 'app-comments-page',
   templateUrl: './comments-page.html',
   styleUrl: './comments-page.scss',
   imports: [AttachmentView, CommentForm, CommentNodeComponent, RelativeTimePipe, SanitizedHtmlPipe],
+  providers: [OpenThread],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CommentsPage implements OnInit {
@@ -48,44 +60,22 @@ export class CommentsPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
 
+  protected readonly thread = inject(OpenThread);
+
   protected readonly columns: readonly SortColumn[] = [
     { field: 'userName', label: 'User Name' },
     { field: 'email', label: 'E-mail' },
     { field: 'createdAt', label: 'Дата добавления' },
   ];
 
-  protected readonly page = signal(1);
-  protected readonly sortBy = signal<CommentSortField>('createdAt');
-
-  /** LIFO by default, exactly as the assignment specifies. */
-  protected readonly direction = signal<SortDirection>('descending');
+  protected readonly page = signal(DEFAULT_STATE.page);
+  protected readonly sortBy = signal(DEFAULT_STATE.sortBy);
+  protected readonly direction = signal(DEFAULT_STATE.direction);
 
   protected readonly result = signal<PagedResult<CommentListItem> | null>(null);
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly formOpen = signal(false);
-
-  /**
-   * The thread expanded inline. Held as the flat list of every node loaded so far — first page,
-   * further pages, and live additions — and turned into a tree on demand, so appending never
-   * requires re-fetching what is already on screen.
-   */
-  protected readonly openThreadId = signal<string | null>(null);
-  protected readonly threadNodes = signal<CommentNode[]>([]);
-  protected readonly threadTotal = signal(0);
-  protected readonly threadCursor = signal<string | null>(null);
-  protected readonly threadLoading = signal(false);
-  protected readonly threadError = signal(false);
-
-  protected readonly threadTree = computed(() => {
-    const rootId = this.openThreadId();
-
-    return rootId ? buildThreadTree(this.threadNodes(), rootId) : null;
-  });
-
-  protected readonly threadRemaining = computed(() =>
-    Math.max(0, this.threadTotal() - this.threadNodes().length),
-  );
 
   /**
    * Comments that arrived over the socket while the user was looking at page 1.
@@ -133,37 +123,26 @@ export class CommentsPage implements OnInit {
 
   ngOnInit(): void {
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
-      this.page.set(Math.max(1, Number(params.get('page') ?? 1) || 1));
-      this.sortBy.set((params.get('sortBy') as CommentSortField | null) ?? 'createdAt');
-      this.direction.set((params.get('direction') as SortDirection | null) ?? 'descending');
+      const state = readListState(params);
+
+      this.page.set(state.page);
+      this.sortBy.set(state.sortBy);
+      this.direction.set(state.direction);
 
       this.load();
     });
 
     void this.realtime.start();
 
-    this.realtime.commentCreated.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((comment) => {
-      this.onLiveComment(comment);
-    });
+    this.realtime.commentCreated
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((comment) => this.onLiveComment(comment));
 
     this.realtime.attachmentReady.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((event) => {
-      // Swap the "обрабатывается" placeholder for the real file in place. The table is reloaded (it is
-      // one cached request); the open thread is patched rather than re-fetched, so pages the reader
-      // has already expanded are not thrown away.
+      // The table is reloaded (it is one cached request); the open thread is patched in place, so
+      // pages the reader has already expanded are not thrown away.
       this.load();
-
-      this.threadNodes.update((nodes) =>
-        nodes.map((node) =>
-          node.id === event.commentId
-            ? {
-                ...node,
-                attachments: node.attachments.map((a) =>
-                  a.id === event.attachment.id ? event.attachment : a,
-                ),
-              }
-            : node,
-        ),
-      );
+      this.thread.applyAttachmentReady(event);
     });
   }
 
@@ -180,25 +159,6 @@ export class CommentsPage implements OnInit {
     this.navigate({ page });
   }
 
-  protected toggleThread(id: string): void {
-    if (this.openThreadId() === id) {
-      void this.realtime.unwatchThread(id);
-      this.openThreadId.set(null);
-      this.threadNodes.set([]);
-      return;
-    }
-
-    const previous = this.openThreadId();
-
-    if (previous) {
-      void this.realtime.unwatchThread(previous);
-    }
-
-    this.openThreadId.set(id);
-    void this.realtime.watchThread(id);
-    this.loadThread(id);
-  }
-
   protected onCommentCreated(posted: CommentPosted): void {
     this.formOpen.set(false);
     this.ownComments.add(posted.result.id);
@@ -208,15 +168,33 @@ export class CommentsPage implements OnInit {
     // leaving the user on page 7 wondering whether it worked is the wrong outcome. The reload that
     // navigation triggers inserts it via reconcileOwnComments.
     if (!this.onFirstDefaultPage()) {
-      this.navigate({ page: 1, sortBy: 'createdAt', direction: 'descending' });
+      this.navigate(DEFAULT_STATE);
       return;
     }
 
     this.insertOptimistically(posted);
   }
 
+  /** Shows the user's own reply at once, the same way the table shows their own top-level comment. */
+  protected onReplied(posted: CommentPosted): void {
+    this.ownComments.add(posted.result.id);
+    this.thread.addOwnReply(posted);
+
+    // The reply count in the table changes too.
+    this.load();
+  }
+
+  protected showPendingLive(): void {
+    this.pendingLive.set([]);
+    this.load();
+  }
+
   private onFirstDefaultPage(): boolean {
-    return this.page() === 1 && this.sortBy() === 'createdAt' && this.direction() === 'descending';
+    return (
+      this.page() === DEFAULT_STATE.page &&
+      this.sortBy() === DEFAULT_STATE.sortBy &&
+      this.direction() === DEFAULT_STATE.direction
+    );
   }
 
   private reconcileOwnComments(): void {
@@ -262,38 +240,12 @@ export class CommentsPage implements OnInit {
 
     this.result.set({
       ...current,
-      items: [item, ...current.items].slice(0, PAGE_SIZE),
+      items: [item, ...current.items].slice(0, current.pageSize),
       totalCount: current.totalCount + 1,
     });
   }
 
-  /** Shows the user's own reply at once, the same way the table shows their own top-level comment. */
-  protected onReplied(posted: CommentPosted): void {
-    this.ownComments.add(posted.result.id);
-
-    if (this.openThreadId() === posted.result.rootId) {
-      this.threadNodes.update((nodes) => mergeNodes(nodes, [toNode(posted, nodes)]));
-      this.threadTotal.update((total) => total + 1);
-    }
-
-    // The reply count in the table changes too.
-    this.load();
-  }
-
-  protected showPendingLive(): void {
-    this.pendingLive.set([]);
-    this.load();
-  }
-
-  protected trackById(_: number, item: { id: string }): string {
-    return item.id;
-  }
-
-  private navigate(changes: {
-    page?: number;
-    sortBy?: CommentSortField;
-    direction?: SortDirection;
-  }): void {
+  private navigate(changes: Partial<ListState>): void {
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: {
@@ -313,12 +265,7 @@ export class CommentsPage implements OnInit {
     this.error.set(null);
 
     this.api
-      .getTopLevel({
-        page: this.page(),
-        pageSize: PAGE_SIZE,
-        sortBy: this.sortBy(),
-        direction: this.direction(),
-      })
+      .getTopLevel({ page: this.page(), sortBy: this.sortBy(), direction: this.direction() })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (result) => {
@@ -333,64 +280,9 @@ export class CommentsPage implements OnInit {
       });
   }
 
-  /** Loads the first page of a thread, replacing whatever thread was open. */
-  private loadThread(rootId: string): void {
-    this.threadNodes.set([]);
-    this.threadCursor.set(null);
-    this.fetchThreadPage(rootId, null);
-  }
-
-  /** Appends the next page of the open thread. */
-  protected loadMoreThread(): void {
-    const rootId = this.openThreadId();
-    const cursor = this.threadCursor();
-
-    if (rootId && cursor && !this.threadLoading()) {
-      this.fetchThreadPage(rootId, cursor);
-    }
-  }
-
-  private fetchThreadPage(rootId: string, after: string | null): void {
-    this.threadLoading.set(true);
-    this.threadError.set(false);
-
-    this.api
-      .getThread(rootId, after)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (page) => {
-          // The reader may have opened a different thread while this page was in flight.
-          if (this.openThreadId() !== rootId) {
-            return;
-          }
-
-          this.threadNodes.update((nodes) => mergeNodes(nodes, page.nodes));
-          this.threadTotal.set(page.totalCount);
-          this.threadCursor.set(page.nextCursor ?? null);
-          this.threadLoading.set(false);
-        },
-        error: () => {
-          this.threadError.set(true);
-          this.threadLoading.set(false);
-        },
-      });
-  }
-
   private onLiveComment(comment: CommentNode): void {
     if (comment.parentId) {
-      // A reply: only interesting if its thread is open on screen. Added in place rather than by
-      // re-fetching, so the pages the reader has expanded stay put; a reply whose parent has not
-      // been loaded yet is kept too, and attaches itself when that page arrives.
-      if (this.openThreadId() === comment.rootId) {
-        const isNew = !this.threadNodes().some((node) => node.id === comment.id);
-
-        this.threadNodes.update((nodes) => mergeNodes(nodes, [comment]));
-
-        if (isNew) {
-          this.threadTotal.update((total) => total + 1);
-        }
-      }
-
+      this.thread.addLiveReply(comment);
       return;
     }
 
@@ -405,18 +297,19 @@ export class CommentsPage implements OnInit {
   }
 }
 
-/** The node the server would have returned for a reply the user has just posted. */
-function toNode(posted: CommentPosted, existing: readonly CommentNode[]): CommentNode {
-  const parent = existing.find((node) => node.id === posted.result.parentId);
+/**
+ * Reads the table state from the query string. The URL is user input — hand-edited, bookmarked
+ * from an older version — so anything unrecognised falls back to the default rather than reaching
+ * the API as a guaranteed 400.
+ */
+function readListState(params: ParamMap): ListState {
+  const page = Number(params.get('page'));
+  const sortBy = params.get('sortBy') as CommentSortField | null;
+  const direction = params.get('direction') as SortDirection | null;
 
   return {
-    id: posted.result.id,
-    parentId: posted.result.parentId ?? null,
-    rootId: posted.result.rootId,
-    depth: (parent?.depth ?? 0) + 1,
-    author: { id: '', ...posted.author },
-    textHtml: posted.result.textHtml,
-    createdAt: posted.result.createdAt,
-    attachments: [],
+    page: Number.isInteger(page) && page >= 1 ? page : DEFAULT_STATE.page,
+    sortBy: sortBy && SORT_FIELDS.includes(sortBy) ? sortBy : DEFAULT_STATE.sortBy,
+    direction: direction && DIRECTIONS.includes(direction) ? direction : DEFAULT_STATE.direction,
   };
 }

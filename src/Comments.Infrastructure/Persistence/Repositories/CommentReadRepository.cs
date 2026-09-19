@@ -83,33 +83,36 @@ public sealed class CommentReadRepository(AppDbContext context, IAttachmentDtoMa
         Guid rootId,
         int maxDepth,
         int limit,
-        string? afterPath,
+        ThreadCursor? after,
         CancellationToken cancellationToken = default)
     {
         var thread = context.Comments.Where(c => c.RootId == rootId && c.Depth <= maxDepth);
 
-        // Keyset on the materialised path: "everything after the last node you saw", served by the
-        // same (RootId, Path) index range scan as the first page. Offset paging would make page 100
+        // Keyset on (path, id): "everything after the last node you saw", served by the same
+        // (RootId, Path) index range scan as the first page — the clustered Id rides along in every
+        // index, so the tie-breaker needs no extra sort. See ThreadCursor for why the path alone is
+        // not enough. Offset paging would make page 100
         // of a large thread scan and discard 99 pages of rows; this costs the same on every page.
         //
         // The comparison is written as parameterised SQL rather than LINQ: Path is a value object with
         // a converter, and EF cannot translate an ordering comparison on it. FromSql composes with the
         // LINQ below, and every value is a parameter, never text. The collation orders the path's hex
         // characters exactly as ordinal comparison does, which keeps pages in depth-first order.
-        var page = afterPath is null
+        var page = after is null
             ? thread
             : context.Comments
                 .FromSql(
                     $"""
                      SELECT * FROM [Comments]
-                     WHERE [RootId] = {rootId} AND [Depth] <= {maxDepth} AND [Path] > {afterPath}
+                     WHERE [RootId] = {rootId} AND [Depth] <= {maxDepth}
+                       AND ([Path] > {after.Path} OR ([Path] = {after.Path} AND [Id] > {after.Id}))
                      """);
 
         // One row more than asked for tells us whether there is a next page without a second query.
-        var rows = await ProjectToNodeRows(page.OrderBy(c => c.Path).Take(limit + 1))
+        var rows = await ProjectToNodeRows(page.OrderBy(c => c.Path).ThenBy(c => c.Id).Take(limit + 1))
             .ToListAsync(cancellationToken);
 
-        if (rows.Count == 0 && afterPath is null)
+        if (rows.Count == 0 && after is null)
         {
             return null;
         }
@@ -124,7 +127,9 @@ public sealed class CommentReadRepository(AppDbContext context, IAttachmentDtoMa
         var total = await thread.CountAsync(cancellationToken);
         var nodes = await ToNodesAsync(rows, cancellationToken);
 
-        return new CommentThreadDto(rootId, total, nodes, hasMore ? rows[^1].Path : null);
+        var next = hasMore ? new ThreadCursor(rows[^1].Path, rows[^1].Id).ToString() : null;
+
+        return new CommentThreadDto(rootId, total, nodes, next);
     }
 
     /// <summary>
@@ -145,7 +150,8 @@ public sealed class CommentReadRepository(AppDbContext context, IAttachmentDtoMa
 
         var replies = context.Comments
             .Where(c => c.ParentId != null && parentIds.Contains(c.ParentId.Value))
-            .OrderBy(c => c.Path);
+            .OrderBy(c => c.Path)
+            .ThenBy(c => c.Id);
 
         var nodes = await ToNodesAsync(
             await ProjectToNodeRows(replies).ToListAsync(cancellationToken),
