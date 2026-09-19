@@ -1,4 +1,3 @@
-using Threadline.Comments.Infrastructure.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
@@ -26,6 +25,6 @@ public sealed class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<App
             .UseSqlServer(connectionString, sql => sql.MigrationsAssembly(typeof(AppDbContext).Assembly.GetName().Name))
             .Options;
 
-        return new AppDbContext(options, new SystemDateTimeProvider());
+        return new AppDbContext(options);
     }
 }

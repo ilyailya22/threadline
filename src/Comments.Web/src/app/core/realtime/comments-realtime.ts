@@ -8,12 +8,7 @@ import {
 import { Subject } from 'rxjs';
 
 import { API_BASE_URL } from '../config/api-base-url';
-import type { Attachment, CommentNode } from '../api/models';
-
-export interface AttachmentReadyEvent {
-  readonly commentId: string;
-  readonly attachment: Attachment;
-}
+import type { AttachmentReadyEvent, CommentNode } from '../api/models';
 
 /**
  * The SignalR connection.

@@ -22,7 +22,7 @@ public interface ICommentReadRepository
         Guid rootId,
         int maxDepth,
         int limit,
-        string? afterPath,
+        ThreadCursor? after,
         CancellationToken cancellationToken = default);
 
     /// <summary>Batched lookup used by the GraphQL DataLoader to avoid N+1 on nested replies.</summary>

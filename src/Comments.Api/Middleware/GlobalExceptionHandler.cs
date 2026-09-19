@@ -23,6 +23,9 @@ public sealed partial class GlobalExceptionHandler(
     IProblemDetailsService problemDetails,
     ILogger<GlobalExceptionHandler> logger) : IExceptionHandler
 {
+    /// <summary>Title of every 400 with field errors, whichever layer produced them.</summary>
+    public const string ValidationTitle = "One or more validation errors occurred";
+
     public async ValueTask<bool> TryHandleAsync(
         HttpContext httpContext,
         Exception exception,
@@ -97,7 +100,7 @@ public sealed partial class GlobalExceptionHandler(
             exception.Errors.ToDictionary(e => e.Key, e => e.Value, StringComparer.Ordinal))
         {
             Status = StatusCodes.Status400BadRequest,
-            Title = "One or more validation errors occurred",
+            Title = ValidationTitle,
         };
 
         return problem;

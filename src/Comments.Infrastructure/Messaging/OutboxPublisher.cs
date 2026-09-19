@@ -1,6 +1,4 @@
-using System.Text.Json;
 using Threadline.Comments.Application.Common.Abstractions;
-using Threadline.Comments.Infrastructure.Messaging.Contracts;
 using Threadline.Comments.Infrastructure.Persistence;
 using Threadline.Comments.Infrastructure.Persistence.Outbox;
 using MassTransit;
@@ -41,8 +39,6 @@ public sealed partial class OutboxPublisher(
     IOptions<OutboxOptions> options,
     ILogger<OutboxPublisher> logger) : BackgroundService
 {
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
-
     private readonly OutboxOptions _options = options.Value;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -133,14 +129,11 @@ public sealed partial class OutboxPublisher(
             {
                 await PublishAsync(bus, message, cancellationToken);
 
-                message.ProcessedAt = now;
-                message.Error = null;
+                message.MarkPublished(now);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                message.Attempts++;
-                message.Error = exception.Message[..Math.Min(exception.Message.Length, 2000)];
-                message.NextAttemptAt = now.Add(Backoff(message.Attempts));
+                message.MarkFailed(exception.Message, now);
 
                 LogPublishFailed(logger, message.Id, message.Type, message.Attempts, exception);
             }
@@ -156,26 +149,20 @@ public sealed partial class OutboxPublisher(
         return published;
     }
 
-    private static Task PublishAsync(
-        IPublishEndpoint bus,
-        OutboxMessage message,
-        CancellationToken cancellationToken) =>
-        message.Type switch
-        {
-            nameof(CommentCreatedIntegrationEvent) => bus.Publish(
-                Deserialize<CommentCreatedIntegrationEvent>(message),
-                context => context.MessageId = message.Id,
-                cancellationToken),
-            _ => throw new NotSupportedException($"Unknown outbox message type '{message.Type}'."),
-        };
+    /// <summary>
+    /// Publishes under the outbox row's id, so the consumers' inbox recognises a redelivery of the
+    /// same event after a crash between publishing and marking the row.
+    /// </summary>
+    private static Task PublishAsync(IPublishEndpoint bus, OutboxMessage message, CancellationToken cancellationToken)
+    {
+        var contract = IntegrationEvents.ContractFor(message.Type);
 
-    private static T Deserialize<T>(OutboxMessage message) =>
-        JsonSerializer.Deserialize<T>(message.Payload, Json)
-        ?? throw new InvalidOperationException($"Outbox message {message.Id} has an empty payload.");
-
-    /// <summary>Exponential backoff capped at five minutes: 1s, 2s, 4s … 300s.</summary>
-    private static TimeSpan Backoff(int attempts) =>
-        TimeSpan.FromSeconds(Math.Min(300, Math.Pow(2, Math.Min(attempts, 9))));
+        return bus.Publish(
+            message.ReadPayload(contract),
+            contract,
+            context => context.MessageId = message.Id,
+            cancellationToken);
+    }
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Outbox publisher started (batch size {BatchSize})")]
     private static partial void LogStarted(ILogger logger, int batchSize);

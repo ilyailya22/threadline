@@ -1,8 +1,8 @@
 using Threadline.Comments.Application.Comments.Dtos;
 using Threadline.Comments.Application.Common.Abstractions;
 using Threadline.Comments.Application.Common.Exceptions;
+using Threadline.Comments.Application.Common.Models;
 using Threadline.Comments.Domain.Comments;
-using Threadline.Comments.Domain.Common;
 using MediatR;
 
 namespace Threadline.Comments.Application.Comments.Queries.GetCommentThread;
@@ -25,24 +25,18 @@ public sealed class GetCommentThreadQueryHandler(ICommentReadRepository reposito
     }
 
     /// <summary>
-    /// The cursor is a materialised path, but it arrives from a client: it is parsed through the
-    /// domain type rather than passed to a query as a raw string, so anything that is not a
-    /// well-formed path is a 400 here instead of a strange comparison in SQL.
+    /// The cursor arrives from a client, so it is parsed rather than passed to a query as a raw
+    /// string: anything malformed is a 400 here instead of a strange comparison in SQL.
     /// </summary>
-    private static string? ParseCursor(string? cursor)
+    private static ThreadCursor? ParseCursor(string? cursor)
     {
         if (string.IsNullOrWhiteSpace(cursor))
         {
             return null;
         }
 
-        try
-        {
-            return CommentPath.FromStorage(cursor).Value;
-        }
-        catch (DomainException)
-        {
-            throw new InputValidationException("after", "The cursor is not valid.");
-        }
+        return ThreadCursor.TryParse(cursor, out var parsed)
+            ? parsed
+            : throw new InputValidationException("after", "The cursor is not valid.");
     }
 }
