@@ -27,8 +27,9 @@ RUN dotnet publish src/Comments.Api/Comments.Api.csproj \
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 
-ENV ASPNETCORE_URLS=http://+:8080 \
-    DOTNET_gcServer=1 \
+# The base image already listens on 8080 (ASPNETCORE_HTTP_PORTS); setting ASPNETCORE_URLS as well
+# only makes Kestrel warn that one overrides the other.
+ENV DOTNET_gcServer=1 \
     DOTNET_TieredPGO=1
 
 # curl is not in the base image, and compose needs it to gate dependent services on this one being

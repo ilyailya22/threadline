@@ -9,7 +9,7 @@
         type="text"
         formControlName="userName"
         autocomplete="nickname"
-        maxlength="64"
+        [attr.maxlength]="rules()?.userName?.maxLength"
         [attr.aria-invalid]="controlError('userName') ? 'true' : null"
       />
       @if (controlError('userName'); as error) {
@@ -28,7 +28,7 @@
         type="email"
         formControlName="email"
         autocomplete="email"
-        maxlength="254"
+        [attr.maxlength]="rules()?.email?.maxLength"
         [attr.aria-invalid]="controlError('email') ? 'true' : null"
       />
       @if (controlError('email'); as error) {
@@ -44,7 +44,8 @@
         formControlName="homePage"
         placeholder="https://example.com"
         autocomplete="url"
-        maxlength="2048"
+        [attr.maxlength]="rules()?.homePage?.maxLength"
+        [attr.aria-invalid]="controlError('homePage') ? 'true' : null"
       />
       @if (controlError('homePage'); as error) {
         <span class="field__error">{{ error }}</span>
@@ -77,7 +78,7 @@
       class="field__input field__input--area"
       formControlName="text"
       rows="6"
-      maxlength="20000"
+      [attr.maxlength]="rules()?.text?.maxLength"
       [attr.aria-invalid]="controlError('text') ? 'true' : null"
     ></textarea>
 
@@ -124,7 +125,7 @@
           #fileInput
           class="file__input"
           type="file"
-          accept=".jpg,.jpeg,.png,.gif,.txt"
+          [attr.accept]="acceptedExtensions()"
           (change)="onFileSelected($event)"
         />
 
@@ -188,7 +189,7 @@
         type="text"
         formControlName="captchaAnswer"
         autocomplete="off"
-        maxlength="16"
+        [attr.maxlength]="rules()?.captcha?.maxLength"
         placeholder="Символы с картинки"
         [attr.aria-invalid]="controlError('captchaAnswer') ? 'true' : null"
       />
