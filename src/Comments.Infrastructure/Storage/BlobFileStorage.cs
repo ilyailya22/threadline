@@ -27,6 +27,16 @@ public sealed class BlobFileStorage : IFileStorage
 
         var settings = options.Value;
 
+        // Both set is a configuration mistake, not a preference: a connection string left in a
+        // shared appsettings file silently wins over the account URL a deployment provides, and
+        // every upload then goes to an emulator that is not there. Fail at startup instead.
+        if (!string.IsNullOrWhiteSpace(settings.ConnectionString)
+            && !string.IsNullOrWhiteSpace(settings.AccountUrl))
+        {
+            throw new InvalidOperationException(
+                $"{StorageOptions.SectionName}: set either ConnectionString or AccountUrl, not both.");
+        }
+
         var serviceClient = !string.IsNullOrWhiteSpace(settings.ConnectionString)
             ? new BlobServiceClient(settings.ConnectionString)
             : new BlobServiceClient(
