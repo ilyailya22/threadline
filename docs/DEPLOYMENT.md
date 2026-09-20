@@ -5,10 +5,19 @@ Everything needed to put the system on Azure is in the repository: Bicep templat
 [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml). The template is validated with
 `az bicep build`.
 
-> **Status.** The deployment was not executed during development because no Azure subscription was
-> available. The steps below are the exact ones to run; the recommended path is an **Azure Free
-> Trial** (USD 200 credit for 30 days), which covers this deployment comfortably — see the cost
-> table.
+> **Status — deployed.** The stack runs on Azure today:
+> <https://threadline-dev-web.delightfulpebble-27670933.canadacentral.azurecontainerapps.io>
+>
+> Region **canadacentral**, resource group `rg-threadline-dev`, deployed by hand with the commands
+> below (Path A) on an Azure Free Trial (USD 200 credit for 30 days), which covers it comfortably —
+> see the cost table. Two notes from doing it for real:
+>
+> * A new Free Trial subscription is not accepted in every region. `westeurope`, `northeurope` and
+>   `eastus` all answered `RequestDisallowedByAzure — region is currently not accepting new
+>   customers`; `canadacentral` did. Pass the region as the `location` **parameter**, not only as
+>   `az deployment sub --location` — that flag only says where the deployment's own metadata lives.
+> * `az acr build` is disabled on a Free Trial (`TasksOperationsNotAllowed`), so step 4 builds the
+>   images locally and pushes them, exactly as written below.
 
 ---
 
@@ -21,7 +30,7 @@ Resource group  rg-threadline-dev
 │   ├── threadline-dev-api            ASP.NET Core API     internal, 2–10 replicas, HTTP-concurrency scaling
 │   ├── threadline-dev-worker         outbox + consumers   1–8 replicas, RabbitMQ queue-depth scaling
 │   ├── threadline-dev-redis          redis:7              internal, 1 replica, Azure Files volume
-│   ├── threadline-dev-rabbitmq       rabbitmq:3           internal, 1 replica, Azure Files volume
+│   ├── threadline-dev-rabbitmq       rabbitmq:3           internal, 1 replica, no volume (see below)
 │   └── threadline-dev-elasticsearch  elasticsearch:9.1    internal, 1 replica, Azure Files volume
 ├── Azure SQL Database              serverless GP_S_Gen5_1, auto-pause after 60 min
 ├── Storage account                 blob container "attachments" + file share for stateful apps
@@ -66,7 +75,7 @@ export RABBIT_PASSWORD="$(openssl rand -base64 24 | tr -d '/+=')"
 ```bash
 az deployment sub create \
   --name threadline-initial \
-  --location westeurope \
+  --location canadacentral \
   --template-file deploy/bicep/main.bicep \
   --parameters applicationName=threadline environmentName=dev \
                sqlAdminPassword="$SQL_PASSWORD" \
