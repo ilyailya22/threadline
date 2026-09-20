@@ -134,31 +134,29 @@ resource rabbitmq 'Microsoft.App/containerApps@2024-03-01' = {
             // else, so the broker gets a real credential even though it has no external ingress.
             { name: 'RABBITMQ_DEFAULT_USER', value: rabbitUser }
             { name: 'RABBITMQ_DEFAULT_PASS', secretRef: 'rabbit-password' }
+
+            // Erlang derives the node name from the hostname, and a Container Apps replica hostname
+            // does not resolve to itself — the broker then dies in prelaunch on
+            // rabbit_prelaunch_dist:duplicate_node_check. A fixed short node name avoids the lookup
+            // entirely, which is safe here because this is a single, non-clustered broker.
+            { name: 'RABBITMQ_NODENAME', value: 'rabbit@localhost' }
+            { name: 'RABBITMQ_USE_LONGNAME', value: 'false' }
           ]
           resources: {
             cpu: json('0.5')
             memory: '1Gi'
           }
-          volumeMounts: [
-            {
-              volumeName: 'state'
-              mountPath: '/var/lib/rabbitmq'
-              subPath: 'rabbitmq'
-            }
-          ]
+          // Deliberately ephemeral. Erlang keeps its auth cookie in /var/lib/rabbitmq and refuses to
+          // start unless the file is owned by the broker and mode 400, which an SMB (Azure Files)
+          // mount cannot express — the node then dies in erl_distribution:start_link. Losing the
+          // broker's state on a restart is acceptable here: SQL plus the outbox is the source of
+          // truth, MassTransit recreates its topology on connect, and every consumer is idempotent.
         }
       ]
       scale: {
         minReplicas: 1
         maxReplicas: 1
       }
-      volumes: [
-        {
-          name: 'state'
-          storageType: 'AzureFile'
-          storageName: storageShareName
-        }
-      ]
     }
   }
 }
@@ -417,7 +415,10 @@ resource web 'Microsoft.App/containerApps@2024-03-01' = {
           env: [
             // Empty: nginx proxies the API on the same origin, so the SPA needs no absolute URL.
             { name: 'API_BASE_URL', value: '' }
-            { name: 'API_UPSTREAM', value: 'http://${api.name}' }
+            // The internal FQDN over https, not the short name over http: nginx resolves upstreams
+            // itself and ignores the search domains in /etc/resolv.conf, so a short name is "Host not
+            // found"; the internal ingress terminates TLS and answers plain http with 426.
+            { name: 'API_UPSTREAM', value: 'https://${api.properties.configuration.ingress.fqdn}' }
           ]
           resources: {
             cpu: json('0.25')

@@ -286,12 +286,14 @@ Scenarios, service level objectives and measured results are in
 
 ## Deploying to Azure
 
+**Live:** <https://threadline-dev-web.delightfulpebble-27670933.canadacentral.azurecontainerapps.io>
+
 Infrastructure is Bicep; delivery is GitHub Actions using OIDC federated credentials, so no secret
 is stored in the repository.
 
 ```bash
 az deployment sub create \
-  --location westeurope \
+  --location canadacentral \
   --template-file deploy/bicep/main.bicep \
   --parameters applicationName=threadline environmentName=dev \
                sqlAdminPassword="$SQL_PASSWORD" ipHashPepper="$IP_PEPPER"
