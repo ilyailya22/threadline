@@ -52,7 +52,15 @@ Uploaded `.txt` files are fetched and shown with text interpolation, never as HT
 
 ### 3. Response headers
 
-- The API sets a Content-Security-Policy with no `unsafe-inline` for scripts.
+- A Content-Security-Policy with no `unsafe-inline` for scripts, so an injected `<script>` is
+  inert even if one ever reached the page. The policy that matters is the one on the **document**,
+  because that is the response which executes anything: nginx sends it from
+  [`security-headers.conf`](../src/Comments.Web/security-headers.conf) on the page, its bundles and
+  `config.js`. The API sends its own set on its responses
+  ([`UseSecurityHeaders`](../src/Comments.Api/Extensions/ApiApplicationBuilderExtensions.cs)), which
+  covers it when reached directly; nginx hides those copies on proxied responses so no header
+  arrives twice. `style-src` allows `'unsafe-inline'` because Angular injects component styles as
+  inline `<style>` elements — scripts get no such exemption.
 - `X-Content-Type-Options: nosniff` everywhere, so a browser never reinterprets a response as a
   different type.
 - `.txt` attachments are served with `Content-Disposition: attachment` — downloaded, never rendered

@@ -17,6 +17,7 @@ RUN npm run build -- --configuration production
 FROM nginx:1.27-alpine AS final
 
 COPY src/Comments.Web/nginx.conf /etc/nginx/nginx.conf
+COPY src/Comments.Web/security-headers.conf /etc/nginx/security-headers.conf
 COPY --from=build /app/dist/Comments.Web/browser /usr/share/nginx/html
 COPY src/Comments.Web/docker-entrypoint.sh /docker-entrypoint.d/../entrypoint.sh
 
