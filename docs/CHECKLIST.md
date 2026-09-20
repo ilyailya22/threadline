@@ -164,28 +164,25 @@ text and the extension says image.
 
 ---
 
-## A note on the deployed instance
+## The deployed instance
 
-The assignment asks for a deployed URL. The Azure infrastructure (Bicep) and the delivery pipeline
-(GitHub Actions with OIDC) are complete, and the template passes a full server-side
-`az deployment sub validate` — every resource in it was accepted and expanded.
+<https://threadline-dev-web.delightfulpebble-27670933.canadacentral.azurecontainerapps.io>
 
-The deployment itself has not run yet. A subscription now exists, but it is a new Free Trial one
-with a spending limit, and Azure refuses resource creation in it:
+Region canadacentral, resource group `rg-threadline-dev`, deployed from the Bicep in
+[`deploy/bicep`](../deploy/bicep) — see [DEPLOYMENT.md](DEPLOYMENT.md) for the commands, the cost
+and a teardown that leaves nothing billable behind.
 
-```
-RequestDisallowedByAzure — Resource '…' was disallowed by Azure:
-The selected region is currently not accepting new customers.
-https://aka.ms/locationineligible
-```
+Two things only a real deployment could surface, both now fixed in the template:
 
-The refusal is subscription-wide, not a template or region problem: it is returned in West Europe,
-North Europe, Sweden Central, Poland Central, Germany West Central, France Central, UK South and
-East US alike, and a bare `Standard_LRS` storage account is refused the same way. Lifting it takes
-either a Pay-As-You-Go upgrade or a (free) subscription-management support request — neither of
-which is a code change.
+* **RabbitMQ would not start.** Its Erlang cookie lived on an Azure Files share, and SMB cannot
+  express mode 400 or file ownership. The broker is ephemeral now — SQL plus the outbox is the
+  source of truth, MassTransit rebuilds the topology on boot, and the consumers are idempotent.
+* **nginx could not reach the API.** Container Apps routes internal traffic by the Host header and
+  terminates TLS on the internal ingress, so the upstream has to be the API's internal FQDN over
+  https, with SNI, HTTP/1.1 and `Host` set to that name rather than the browser's.
 
-[DEPLOYMENT.md](DEPLOYMENT.md) has the exact commands, the expected cost, and a teardown that leaves
-nothing billable behind.
+Getting there also needed two subscription-level workarounds that are not code: a new Free Trial is
+refused in most European regions (`RequestDisallowedByAzure`), and `az acr build` is disabled on it,
+so the images are built locally and pushed.
 
 `docker compose up -d --build` is the always-working path and is what the demo video records.

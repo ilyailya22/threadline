@@ -15,8 +15,15 @@ API_UPSTREAM="${API_UPSTREAM:-http://api:8080}"
 RESOLVER="$(awk '/^nameserver/ { print $2; exit }' /etc/resolv.conf)"
 RESOLVER="${RESOLVER:-127.0.0.11}"
 
+# The host nginx puts in the Host header: the upstream's own name, with the scheme, any port and
+# any path stripped off.
+API_HOST="${API_UPSTREAM#*://}"
+API_HOST="${API_HOST%%/*}"
+API_HOST="${API_HOST%%:*}"
+
 sed -i \
     -e "s|__API_UPSTREAM__|${API_UPSTREAM}|g" \
+    -e "s|__API_HOST__|${API_HOST}|g" \
     -e "s|__RESOLVER__|${RESOLVER}|g" \
     /etc/nginx/nginx.conf
 
