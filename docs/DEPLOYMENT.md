@@ -165,6 +165,10 @@ In the GitHub repository, create an environment named `dev` with these secrets:
 | `IP_HASH_PEPPER` | generated above |
 | `RABBIT_PASSWORD` | generated above |
 
+Then set the repository variable `DEPLOY_ENABLED` to `true`. Without it the deploy job is skipped:
+a fork or a fresh clone has no federated credential, and a run that cannot sign in is noise rather
+than a failure.
+
 ### Deploy
 
 Push to `main`, or run **Deploy to Azure** manually from the Actions tab. The workflow deploys the
