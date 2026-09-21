@@ -48,6 +48,7 @@ What a real launch would need first.
 | B8 | **Content moderation**: report button, soft delete, admin view | Any public board needs it within days of launch | L |
 | B9 | **Stronger bot defence**: Cloudflare Turnstile or hCaptcha as an option alongside the built-in CAPTCHA | A distorted-text CAPTCHA slows commodity bots, not a determined adversary | S |
 | B10 | **Dashboards and alerts** in Application Insights: p95 by endpoint, queue depth, outbox lag, cache hit ratio | The telemetry is emitted; nothing watches it yet | M |
+| B11 | **Close the read-through cache race**: stamp the list cache key with a generation counter that the indexer bumps, so a reader that started before an index write cannot store its stale page afterwards | A reader whose ES query began before the indexer finished writes its result into the cache *after* the invalidation, so a just-posted comment can vanish from the list for up to the 30 s TTL. The client compensates for the author's own comment ([`comments-page.ts`](../src/Comments.Web/src/app/features/comments/comments-page/comments-page.ts)); everyone else waits out the entry | S |
 
 ## C. Scale — when the numbers grow past the target
 

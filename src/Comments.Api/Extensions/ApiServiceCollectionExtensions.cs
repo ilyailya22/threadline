@@ -58,18 +58,28 @@ public static class ApiServiceCollectionExtensions
         return services;
     }
 
+    /// <summary>
+    /// How this API writes JSON, wherever it writes it.
+    /// </summary>
+    /// <remarks>
+    /// Enums travel as names ("createdAt", "descending", "Image"), not ordinals: a client should not
+    /// have to know that Email happens to be 2, and reordering the enum must not silently change the
+    /// meaning of stored URLs. SignalR uses its own serializer options, so it has to be told the
+    /// same thing — otherwise the same attachment is <c>"kind": "Image"</c> over REST and
+    /// <c>"kind": 1</c> over the hub, and a client that believes the REST shape renders the pushed
+    /// one as whatever its fallback branch is.
+    /// </remarks>
+    private static void ConfigurePayloadJson(JsonSerializerOptions options)
+    {
+        options.Converters.Add(new JsonStringEnumConverter());
+        options.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+    }
+
     public static IServiceCollection AddApiControllers(this IServiceCollection services)
     {
         services
             .AddControllers()
-            .AddJsonOptions(options =>
-            {
-                // Enums travel as names ("createdAt", "descending"), not ordinals: a client should
-                // not have to know that Email happens to be 2, and reordering the enum must not
-                // silently change the meaning of stored URLs.
-                options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-                options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
-            })
+            .AddJsonOptions(options => ConfigurePayloadJson(options.JsonSerializerOptions))
             .ConfigureApiBehaviorOptions(options =>
                 options.InvalidModelStateResponseFactory = CamelCaseValidationProblem);
 
@@ -97,11 +107,13 @@ public static class ApiServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(environment);
 
-        var signalR = services.AddSignalR(options =>
-        {
-            options.EnableDetailedErrors = environment.IsDevelopment();
-            options.MaximumReceiveMessageSize = 32 * 1024;
-        });
+        var signalR = services
+            .AddSignalR(options =>
+            {
+                options.EnableDetailedErrors = environment.IsDevelopment();
+                options.MaximumReceiveMessageSize = 32 * 1024;
+            })
+            .AddJsonProtocol(options => ConfigurePayloadJson(options.PayloadSerializerOptions));
 
         if (configuration.GetConnectionString(ConnectionStrings.Redis) is { Length: > 0 } redis)
         {
