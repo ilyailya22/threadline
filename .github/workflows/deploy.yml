@@ -37,6 +37,12 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment || 'dev' }}
 
+    # A clone of this repository has no Azure credentials, and a deployment that cannot sign in is
+    # not a failure worth reporting — it is a deployment nobody asked for. With the federated
+    # credential configured (see docs/DEPLOYMENT.md, path B) the condition is true and every push to
+    # main deploys.
+    if: ${{ vars.DEPLOY_ENABLED == 'true' }}
+
     steps:
       - uses: actions/checkout@v4
 
