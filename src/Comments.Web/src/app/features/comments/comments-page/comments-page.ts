@@ -45,6 +45,14 @@ interface ListState {
 /** LIFO by default, exactly as the assignment specifies. */
 const DEFAULT_STATE: ListState = { page: 1, sortBy: 'createdAt', direction: 'descending' };
 
+/**
+ * How long this browser keeps compensating for its own just-posted comment.
+ *
+ * Comfortably longer than the list cache's 30 s, so a page cached from a read that raced the
+ * indexer cannot outlive the compensation.
+ */
+const OWN_COMMENT_GRACE_MS = 120_000;
+
 @Component({
   selector: 'app-comments-page',
   templateUrl: './comments-page.html',
@@ -90,8 +98,13 @@ export class CommentsPage implements OnInit {
 
   /**
    * This browser's own posts that the search index may not have caught up with yet. Every list load
-   * re-inserts the ones it does not contain, and forgets each one the moment the index returns it —
-   * so an unrelated reload in the meantime cannot make a just-posted comment vanish.
+   * re-inserts the ones it does not contain, for OWN_COMMENT_GRACE_MS after posting.
+   *
+   * Forgetting one the first time the index returns it is not enough. The list is read through a
+   * cache, and a reader whose query started before the indexer finished can write its stale page
+   * into that cache afterwards — so a comment that has already been seen can disappear again for
+   * the rest of the entry's lifetime. To the person who posted it, that reads as "it worked, then
+   * it was deleted".
    */
   private readonly unconfirmedOwn = new Map<string, CommentPosted>();
 
@@ -204,10 +217,15 @@ export class CommentsPage implements OnInit {
       return;
     }
 
+    const now = Date.now();
+
     for (const [id, posted] of this.unconfirmedOwn) {
-      if (current.items.some((item) => item.id === id)) {
+      if (now - Date.parse(posted.result.createdAt) > OWN_COMMENT_GRACE_MS) {
         this.unconfirmedOwn.delete(id);
-      } else if (this.onFirstDefaultPage()) {
+        continue;
+      }
+
+      if (!current.items.some((item) => item.id === id) && this.onFirstDefaultPage()) {
         this.insertOptimistically(posted);
       }
     }
