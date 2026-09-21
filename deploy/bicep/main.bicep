@@ -33,7 +33,7 @@ param applicationName string = 'threadline'
 param environmentName string = 'dev'
 
 @description('Azure region for every resource.')
-param location string = 'westeurope'
+param location string = 'canadacentral'
 
 @description('Administrator login for Azure SQL.')
 param sqlAdminLogin string = 'tladmin'

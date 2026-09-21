@@ -25,7 +25,10 @@ permissions:
   contents: read
 
 env:
-  AZURE_LOCATION: westeurope
+  # The region the deployment actually runs in. A new subscription is not accepted everywhere:
+  # westeurope, northeurope and eastus all answer "RequestDisallowedByAzure — the selected region
+  # is currently not accepting new customers" for this one, and canadacentral does.
+  AZURE_LOCATION: canadacentral
   APPLICATION_NAME: threadline
 
 jobs:
@@ -61,6 +64,7 @@ jobs:
                 location="${{ env.AZURE_LOCATION }}" \
                 sqlAdminPassword="${{ secrets.SQL_ADMIN_PASSWORD }}" \
                 ipHashPepper="${{ secrets.IP_HASH_PEPPER }}" \
+                rabbitPassword="${{ secrets.RABBIT_PASSWORD }}" \
                 imageTag="${{ github.sha }}" \
             --query properties.outputs -o json)
 

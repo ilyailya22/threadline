@@ -200,7 +200,7 @@ at the end. Conventional Commits throughout — the assignment explicitly says b
       RabbitMQ + Elasticsearch + Redis as container apps, managed identity everywhere
 - [x] GitHub Actions: build → style → test → push to ACR → deploy (OIDC federated credentials) —
       _vulnerable NuGet packages fail the build_
-- [ ] Actual deployment to Azure — _pending an Azure subscription; see docs/DEPLOYMENT.md_
+- [x] Actual deployment to Azure — _live in canadacentral; URL in README and docs/DEPLOYMENT.md_
 - [x] `docs/DEPLOYMENT.md` — exact commands for the Free Trial path, plus teardown & cost table
 
 ### Phase 8 — Documentation & submission
