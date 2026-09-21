@@ -65,8 +65,8 @@ Running the full Docker stack by hand found the rest — see the commit history 
 
 Angular 22 with Vitest (`npm test`). The components are thin — validation rules come from the
 server, rendering goes through two sanitisers — so the high-value frontend checks are the
-end-to-end ones: the manual QA script in [CHECKLIST.md](CHECKLIST.md) and the demo in
-[DEMO-SCRIPT.md](DEMO-SCRIPT.md). Browser-level E2E tests (Playwright) are listed in
+end-to-end ones: the manual QA script in [CHECKLIST.md](CHECKLIST.md) and the demo video.
+Browser-level E2E tests (Playwright) are listed in
 [IMPROVEMENTS.md](IMPROVEMENTS.md).
 
 ## Load tests

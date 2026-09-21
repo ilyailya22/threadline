@@ -317,7 +317,6 @@ behind: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 | [docs/LOAD-TESTING.md](docs/LOAD-TESTING.md) | Scenarios, SLOs, results and where the ceiling is |
 | [docs/TESTING.md](docs/TESTING.md) | Test strategy and how to run each layer |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Azure deployment, costs, teardown |
-| [docs/DEMO-SCRIPT.md](docs/DEMO-SCRIPT.md) | Shot list for the demo video, with the narration in [DEMO-SCRIPT.uk.md](docs/DEMO-SCRIPT.uk.md) |
 | [docs/IMPROVEMENTS.md](docs/IMPROVEMENTS.md) | What was deliberately left out, and what would come next |
 | [docs/adr/](docs/adr/) | Architecture decision records |
 
