@@ -1,8 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Net.Http.Headers;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Threadline.Comments.Application.Comments.Dtos;
 using Threadline.Comments.Application.Common.Models;
+using Threadline.Comments.Domain.Comments;
 using Threadline.Comments.IntegrationTests.Infrastructure;
 using Shouldly;
 
@@ -15,7 +18,15 @@ namespace Threadline.Comments.IntegrationTests;
 [Collection(IntegrationTestSuite.Name)]
 public sealed class CommentsApiTests(CommentsApiFactory factory) : IAsyncLifetime
 {
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    // Enums as names, the way the API writes them.
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter() },
+    };
+
+    /// <summary>A valid 1×1 PNG: the smallest real image the upload pipeline will accept.</summary>
+    private static readonly byte[] OnePixelPng = Convert.FromBase64String(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==");
 
     private HttpClient _client = null!;
 
@@ -425,6 +436,26 @@ public sealed class CommentsApiTests(CommentsApiFactory factory) : IAsyncLifetim
         settled!.Items.Single(i => i.Id == root.Id).ReplyCount.ShouldBe(5);
     }
 
+    // ---------------------------------------------------------------- attachments
+
+    [Fact]
+    public async Task A_new_comment_returns_its_attachment_still_pending()
+    {
+        // The client draws the comment from this response before the search index has it. Without
+        // the attachment here, the "ready" push that follows has no row to update, and the author
+        // never sees their own picture until they reload.
+        var response = await PostFormAsync(ValidForm(), ("pixel.png", "image/png", OnePixelPng));
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
+
+        var created = await response.Content.ReadFromJsonAsync<CreateCommentResultDto>(Json);
+        var attachment = created!.Attachments.ShouldHaveSingleItem();
+
+        attachment.Kind.ShouldBe(AttachmentKind.Image);
+        attachment.Status.ShouldBe(AttachmentStatus.Pending);
+        attachment.OriginalFileName.ShouldBe("pixel.png");
+    }
+
     // ---------------------------------------------------------------- helpers
 
     /// <summary>
@@ -490,7 +521,9 @@ public sealed class CommentsApiTests(CommentsApiFactory factory) : IAsyncLifetim
         return await PostFormAsync(form);
     }
 
-    private async Task<HttpResponseMessage> PostFormAsync(Dictionary<string, string> fields)
+    private async Task<HttpResponseMessage> PostFormAsync(
+        Dictionary<string, string> fields,
+        (string Name, string ContentType, byte[] Bytes)? file = null)
     {
         // A real challenge is issued even though the bypass answers it: the Redis round trip is
         // part of what these tests are exercising.
@@ -504,6 +537,13 @@ public sealed class CommentsApiTests(CommentsApiFactory factory) : IAsyncLifetim
         foreach (var (key, value) in fields)
         {
             content.Add(new StringContent(value), key);
+        }
+
+        if (file is { } upload)
+        {
+            var bytes = new ByteArrayContent(upload.Bytes);
+            bytes.Headers.ContentType = new MediaTypeHeaderValue(upload.ContentType);
+            content.Add(bytes, "file", upload.Name);
         }
 
         return await _client.PostAsync("/api/comments", content);

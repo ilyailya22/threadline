@@ -27,6 +27,7 @@ public sealed class CreateCommentCommandHandler(
     ICommentTextSanitizer sanitizer,
     ICaptchaService captcha,
     IAttachmentIntakeService attachments,
+    IAttachmentDtoMapper attachmentMapper,
     IClientContext client,
     IDateTimeProvider clock) : IRequestHandler<CreateCommentCommand, CreateCommentResultDto>
 {
@@ -69,7 +70,8 @@ public sealed class CreateCommentCommandHandler(
             comment.RootId,
             comment.ParentId,
             comment.CreatedAt,
-            comment.Body.Html);
+            comment.Body.Html,
+            [.. comment.Attachments.Select(attachmentMapper.ToDto)]);
     }
 
     private async Task EnsureCaptchaSolvedAsync(CreateCommentCommand request, CancellationToken cancellationToken)

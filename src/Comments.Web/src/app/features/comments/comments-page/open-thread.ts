@@ -147,6 +147,6 @@ function toNode(posted: CommentPosted, existing: readonly CommentNode[]): Commen
     author: { id: '', ...posted.author },
     textHtml: posted.result.textHtml,
     createdAt: posted.result.createdAt,
-    attachments: [],
+    attachments: posted.result.attachments,
   };
 }

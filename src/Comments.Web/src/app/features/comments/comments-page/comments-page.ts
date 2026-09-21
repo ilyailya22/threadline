@@ -12,6 +12,7 @@ import { ActivatedRoute, Router, type ParamMap } from '@angular/router';
 
 import { CommentsApi } from '../../../core/api/comments-api';
 import type {
+  Attachment,
   CommentListItem,
   CommentNode,
   CommentPosted,
@@ -108,6 +109,16 @@ export class CommentsPage implements OnInit {
    */
   private readonly unconfirmedOwn = new Map<string, CommentPosted>();
 
+  /**
+   * Attachments the worker has reported as processed, by id.
+   *
+   * The "ready" push arrives once. A page loaded afterwards can still predate it — the index or the
+   * list cache may not have caught up — and an optimistic row was built before it. Applying this
+   * over every page is what stops a finished image from reverting to "обрабатывается", or never
+   * appearing at all.
+   */
+  private readonly readyAttachments = new Map<string, Attachment>();
+
   protected readonly liveConnected = this.realtime.connected;
 
   protected readonly pageNumbers = computed(() => {
@@ -152,9 +163,11 @@ export class CommentsPage implements OnInit {
       .subscribe((comment) => this.onLiveComment(comment));
 
     this.realtime.attachmentReady.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((event) => {
-      // The table is reloaded (it is one cached request); the open thread is patched in place, so
-      // pages the reader has already expanded are not thrown away.
-      this.load();
+      // Patched in place, table and open thread alike. Re-reading the table instead would ask a
+      // search index and a cache that may not have caught up yet — and would do it in every
+      // connected browser, for every processed file.
+      this.readyAttachments.set(event.attachment.id, event.attachment);
+      this.result.update((current) => current && this.withReadyAttachments(current));
       this.thread.applyAttachmentReady(event);
     });
   }
@@ -253,7 +266,7 @@ export class CommentsPage implements OnInit {
       textPreview: '',
       createdAt: posted.result.createdAt,
       replyCount: 0,
-      attachments: [],
+      attachments: posted.result.attachments.map((a) => this.readyAttachments.get(a.id) ?? a),
     };
 
     this.result.set({
@@ -261,6 +274,20 @@ export class CommentsPage implements OnInit {
       items: [item, ...current.items].slice(0, current.pageSize),
       totalCount: current.totalCount + 1,
     });
+  }
+
+  private withReadyAttachments(page: PagedResult<CommentListItem>): PagedResult<CommentListItem> {
+    if (this.readyAttachments.size === 0) {
+      return page;
+    }
+
+    return {
+      ...page,
+      items: page.items.map((item) => ({
+        ...item,
+        attachments: item.attachments.map((a) => this.readyAttachments.get(a.id) ?? a),
+      })),
+    };
   }
 
   private navigate(changes: Partial<ListState>): void {
@@ -287,7 +314,7 @@ export class CommentsPage implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (result) => {
-          this.result.set(result);
+          this.result.set(this.withReadyAttachments(result));
           this.reconcileOwnComments();
           this.loading.set(false);
         },

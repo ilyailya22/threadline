@@ -90,6 +90,8 @@ export interface CreateCommentResult {
   readonly parentId?: string | null;
   readonly createdAt: string;
   readonly textHtml: string;
+  /** Still pending when returned; the "ready" push replaces each one by id. */
+  readonly attachments: readonly Attachment[];
 }
 
 export interface CommentPreview {
