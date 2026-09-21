@@ -78,7 +78,7 @@ running instance without reading any code.
 | 31 | Git repository | Branch history shows the feature-by-feature progression |
 | 32 | README | [README.md](../README.md) |
 | 33 | **Schema file for MySQL Workbench** | [`db/schema.mysql.sql`](../db/schema.mysql.sql) — File → Import → Reverse Engineer MySQL Create Script |
-| 34 | Video | [DEMO-SCRIPT.md](DEMO-SCRIPT.md) is the shot list it follows |
+| 34 | Video | [DEMO-SCRIPT.md](DEMO-SCRIPT.md) is the shot list it follows, [DEMO-SCRIPT.uk.md](DEMO-SCRIPT.uk.md) the narration |
 
 ---
 

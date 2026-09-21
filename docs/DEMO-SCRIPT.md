@@ -4,6 +4,9 @@ The assignment asks for a short video of the running application that shows as m
 implemented functionality as possible. This is the order that covers every checklist item in about
 seven minutes. Record at 1080p; keep the browser at ~1280 px wide so the table is a table.
 
+The narration itself — what to say, word for word, and what to do with the mouse while saying it —
+is in [DEMO-SCRIPT.uk.md](DEMO-SCRIPT.uk.md), in the language the video is recorded in.
+
 **Before recording**
 
 ```bash
@@ -38,5 +41,6 @@ and a `.txt` over 100 KB ready on the desktop.
 | 17 | 5:40 | RabbitMQ UI (`:15672`) → queues; Elasticsearch `_count` | "Outbox → RabbitMQ → indexer → Elasticsearch." |
 | 18 | 6:00 | GraphQL IDE (`:5080/graphql`): thread query with nested `replies` | "The Graph requirement: a tree query in one round trip, DataLoader-batched." |
 | 19 | 6:20 | Terminal: k6 summary (`loadtests/results`) | "Load test at 200 req/s against the million-row dataset, thresholds enforced." |
-| 20 | 6:40 | `docs/CHECKLIST.md` scrolled once; `deploy/bicep` tree | "Every requirement mapped to code and a verification step; Azure infrastructure as code." |
-| 21 | 7:00 | End | |
+| 20 | 6:40 | The deployed site on Azure: post a short comment | "Running in Azure Container Apps; the URL is in the README." |
+| 21 | 6:50 | `docs/CHECKLIST.md` scrolled once; `deploy/bicep` tree | "Every requirement mapped to code and a verification step; Azure infrastructure as code." |
+| 22 | 7:05 | End | |

@@ -210,7 +210,7 @@ at the end. Conventional Commits throughout — the assignment explicitly says b
 - [x] `db/schema.mysql.sql` + instructions for opening it in MySQL Workbench
 - [x] `docs/CHECKLIST.md` — every assignment requirement → where it is implemented → how to verify
       (this is what their QA will use)
-- [x] Demo video script: `docs/DEMO-SCRIPT.md`
+- [x] Demo video script: `docs/DEMO-SCRIPT.md` (shot list) and `docs/DEMO-SCRIPT.uk.md` (narration)
 - [ ] Record the demo video — _for the author to record_
 
 ---
