@@ -103,6 +103,7 @@ module workloads 'modules/workloads.bicep' = {
     tags: tags
     imageTag: imageTag
     containerAppsEnvironmentId: platform.outputs.containerAppsEnvironmentId
+    containerAppsEnvironmentDomain: platform.outputs.containerAppsEnvironmentDomain
     registryLoginServer: platform.outputs.registryLoginServer
     registryId: platform.outputs.registryId
     identityId: platform.outputs.identityId

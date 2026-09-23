@@ -70,6 +70,20 @@ export IP_PEPPER="$(openssl rand -base64 32)"
 export RABBIT_PASSWORD="$(openssl rand -base64 24 | tr -d '/+=')"
 ```
 
+### 3. Optional: accounts
+
+Two things the application works without, and works better with:
+
+| Setting | What it turns on | Where to get it |
+|---|---|---|
+| `googleClientId` / `googleClientSecret` | The "Continue with Google" button | Google Cloud console → OAuth client (web), redirect URI `https://<site>/api/auth/google/callback` |
+| `smtpHost`, `smtpPort`, `smtpUsername`, `smtpPassword`, `emailFromAddress` | Confirmation e-mail | Any SMTP relay — Azure Communication Services, SendGrid, your own |
+
+Without the Google pair the button is not shown. Without an SMTP host the confirmation message is
+written to the log instead of sent, so registration still works and the link is findable.
+
+Pass them as extra `--parameters` on the deployment below.
+
 ### 3. Infrastructure
 
 ```bash

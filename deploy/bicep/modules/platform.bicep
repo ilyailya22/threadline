@@ -279,6 +279,7 @@ output keyVaultName string = keyVault.name
 output storageAccountName string = storage.name
 output storageShareName string = environmentStorage.name
 output containerAppsEnvironmentId string = containerAppsEnvironment.id
+output containerAppsEnvironmentDomain string = containerAppsEnvironment.properties.defaultDomain
 output applicationInsightsConnectionString string = applicationInsights.properties.ConnectionString
 
 // The connection string is composed by the consumer from these two plus the credentials it already

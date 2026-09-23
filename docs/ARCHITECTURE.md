@@ -399,7 +399,52 @@ The ones that would change first at real production scale are collected in
 
 ---
 
-## 13. Language
+## 13. Accounts
+
+Posting stays open to guests with a CAPTCHA, which is what the assignment describes. An account is
+the other way in: it brings its own name, address and picture, so the form drops those fields and
+the challenge — signing in has already answered the question a CAPTCHA asks.
+
+**One entity, not two.** An account is the same `User` a comment already pointed at, plus
+credentials: a password hash, a Google subject, or both. The alternative — a separate table linked
+to the author — means every list query joins to find out whose face to draw.
+
+**Registering never adopts a guest's rows.** They wrote their comments before anyone proved
+anything, and rewriting them to point at a new account would put words in its mouth. What
+registering does do is close the address: a filtered unique index reserves it, and a guest who
+types it is told to sign in. Without that, anyone could post as a registered person — the board
+prints the author's address on every row, so the impersonation would be convincing.
+
+**The session is a cookie**, HttpOnly and SameSite=Lax, issued by the API. Not a token in
+`localStorage`: the SPA and the API share an origin, so there is nothing for a script to read and
+nothing to refresh. The author id reaches the application layer from the ticket only — a caller can
+put any id in a form and none of it is read.
+
+**Google** is an OpenID round trip that ends with our own cookie, not Google's ticket. Matching is
+on the `sub` claim first and the address second: an address can change hands at Google, a subject
+cannot, and the address is only used to recognise someone who registered here with a password and
+is now taking the shortcut. Without credentials configured, the button is not shown at all.
+
+**Passwords** are length-only — ten characters, no composition rules, per NIST SP 800-63B, which
+has been saying since 2017 that "one capital, one digit, one symbol" pushes people towards
+`Passw0rd!` and away from passphrases. Hashing is Identity's PBKDF2 hasher, taken without the rest
+of Identity: its stores and entity base classes would reach into the domain, and the domain is
+where the account invariants live. A sign-in for an address with no account still pays for a
+verification, so "no such account" cannot be told from "wrong password" with a stopwatch.
+
+**Confirmation links** carry 256 random bits and are stored as a SHA-256 of themselves, so a leaked
+backup hands out no working links. They last a day. An unconfirmed account can read and post, and
+the interface says the address is unconfirmed: locking someone out until they find an e-mail loses
+them at the one moment they were willing to sign up.
+
+**Avatars** come from Google, or from an upload, or from neither — then the UI draws the initial on
+a colour derived from the name, so the same person is the same colour everywhere and nothing has to
+be generated or stored. An uploaded one goes through the pipeline a comment's image goes through:
+magic bytes, EXIF orientation, re-encode.
+
+---
+
+## 14. Language
 
 The interface is English by default, with Ukrainian one click away in the header; the choice is
 remembered per browser and applies instantly, without a reload.
@@ -418,7 +463,7 @@ English; a message a person reads in the UI is always a key.
 
 ---
 
-## 14. Code conventions
+## 15. Code conventions
 
 The rules below are enforced by the build, not by review: warnings are errors, analyzers run at
 `latest-recommended`, and CI runs `dotnet format --verify-no-changes --severity info` and `ng lint`,
