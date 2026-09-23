@@ -33,10 +33,16 @@ describe('checkAttachment', () => {
 
 describe('describeImageSize', () => {
   it('says when an image will be scaled down', () => {
-    expect(describeImageSize({ width: 640, height: 480 }, rules)).toContain('будет уменьшено');
+    expect(describeImageSize({ width: 640, height: 480 }, rules)).toEqual({
+      key: 'file.willResize',
+      params: { width: 640, height: 480, maxWidth: 320, maxHeight: 240 },
+    });
   });
 
   it('just states the size of an image that already fits', () => {
-    expect(describeImageSize({ width: 320, height: 240 }, rules)).toBe('320×240');
+    expect(describeImageSize({ width: 320, height: 240 }, rules)).toEqual({
+      key: 'file.size',
+      params: { width: 320, height: 240 },
+    });
   });
 });

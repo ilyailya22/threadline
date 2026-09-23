@@ -2,7 +2,7 @@
   <div class="form__grid">
     <label class="field">
       <span class="field__label"
-        >User Name <span class="field__required" aria-hidden="true">*</span></span
+        >{{ t('form.userName') }} <span class="field__required" aria-hidden="true">*</span></span
       >
       <input
         class="field__input"
@@ -15,13 +15,13 @@
       @if (controlError('userName'); as error) {
         <span class="field__error">{{ error }}</span>
       } @else {
-        <span class="field__hint">Латинские буквы и цифры.</span>
+        <span class="field__hint">{{ t('validation.latin') }}</span>
       }
     </label>
 
     <label class="field">
       <span class="field__label"
-        >E-mail <span class="field__required" aria-hidden="true">*</span></span
+        >{{ t('form.email') }} <span class="field__required" aria-hidden="true">*</span></span
       >
       <input
         class="field__input"
@@ -37,7 +37,7 @@
     </label>
 
     <label class="field field--wide">
-      <span class="field__label">Home page</span>
+      <span class="field__label">{{ t('form.homePage') }}</span>
       <input
         class="field__input"
         type="url"
@@ -50,26 +50,31 @@
       @if (controlError('homePage'); as error) {
         <span class="field__error">{{ error }}</span>
       } @else {
-        <span class="field__hint">Необязательное поле.</span>
+        <span class="field__hint">{{ t('form.homePage.hint') }}</span>
       }
     </label>
   </div>
 
   <div class="field field--wide">
-    <div class="toolbar" role="group" aria-label="Разрешённые HTML-теги">
+    <div class="toolbar" role="group" [attr.aria-label]="t('form.tags.group')">
       @for (tag of tagButtons; track tag.label) {
-        <button type="button" class="toolbar__button" [title]="tag.title" (click)="applyTag(tag)">
+        <button
+          type="button"
+          class="toolbar__button"
+          [title]="t(tag.title)"
+          (click)="applyTag(tag)"
+        >
           [{{ tag.label }}]
         </button>
       }
 
       <button type="button" class="toolbar__button toolbar__button--ghost" (click)="preview()">
-        Предпросмотр
+        {{ t('form.preview') }}
       </button>
     </div>
 
     <label class="field__label" for="comment-text">
-      Text <span class="field__required" aria-hidden="true">*</span>
+      {{ t('form.text') }} <span class="field__required" aria-hidden="true">*</span>
     </label>
 
     <textarea
@@ -86,26 +91,26 @@
       @if (controlError('text'); as error) {
         <span class="field__error">{{ error }}</span>
       } @else {
-        <span class="field__hint">
-          Разрешены теги: &lt;a href="" title=""&gt;, &lt;code&gt;, &lt;i&gt;, &lt;strong&gt;. Все
-          теги должны быть закрыты.
-        </span>
+        <span class="field__hint">{{ t('form.tags.hint', { tags: allowedTags() }) }}</span>
       }
-      <span class="field__counter"
-        >{{ form.controls.text.value.length }} / {{ rules()?.text?.maxLength }}</span
-      >
+      <span class="field__counter">{{
+        t('form.counter', {
+          length: form.controls.text.value.length,
+          max: rules()?.text?.maxLength ?? 0,
+        })
+      }}</span>
     </div>
   </div>
 
   @if (previewHtml(); as html) {
     <section class="preview" aria-live="polite">
       <header class="preview__header">
-        <h3 class="preview__title">Предпросмотр</h3>
+        <h3 class="preview__title">{{ t('form.preview.title') }}</h3>
         <button
           type="button"
           class="preview__close"
           (click)="closePreview()"
-          aria-label="Закрыть предпросмотр"
+          [attr.aria-label]="t('form.preview.close')"
         >
           ✕
         </button>
@@ -118,7 +123,7 @@
 
   <div class="form__grid">
     <div class="field">
-      <span class="field__label">Файл</span>
+      <span class="field__label">{{ t('form.file') }}</span>
 
       <div class="file">
         <input
@@ -132,11 +137,7 @@
         @if (selected(); as chosen) {
           <div class="file__selected">
             @if (chosen.previewUrl) {
-              <img
-                class="file__thumb"
-                [src]="chosen.previewUrl"
-                alt="Предпросмотр выбранного изображения"
-              />
+              <img class="file__thumb" [src]="chosen.previewUrl" [alt]="t('form.file.preview')" />
             }
             <span class="file__meta">
               <span class="file__name">{{ chosen.file.name }}</span>
@@ -144,7 +145,9 @@
                 <span class="file__note">{{ chosen.note }}</span>
               }
             </span>
-            <button type="button" class="file__clear" (click)="clearFile(fileInput)">Убрать</button>
+            <button type="button" class="file__clear" (click)="clearFile(fileInput)">
+              {{ t('form.file.clear') }}
+            </button>
           </div>
         }
       </div>
@@ -152,13 +155,13 @@
       @if (fileError(); as error) {
         <span class="field__error">{{ error }}</span>
       } @else {
-        <span class="field__hint">JPG, GIF, PNG (уменьшается до 320×240) или TXT до 100 КБ.</span>
+        <span class="field__hint">{{ fileHint() }}</span>
       }
     </div>
 
     <div class="field">
       <span class="field__label"
-        >CAPTCHA <span class="field__required" aria-hidden="true">*</span></span
+        >{{ t('form.captcha') }} <span class="field__required" aria-hidden="true">*</span></span
       >
 
       <div class="captcha">
@@ -166,7 +169,7 @@
           <img
             class="captcha__image"
             [src]="challenge.imageUrl"
-            alt="Символы на картинке"
+            [alt]="t('form.captcha.alt')"
             width="220"
             height="70"
           />
@@ -178,7 +181,7 @@
           type="button"
           class="captcha__refresh"
           (click)="refreshCaptcha()"
-          title="Обновить картинку"
+          [title]="t('form.captcha.refresh')"
         >
           ⟳
         </button>
@@ -190,7 +193,7 @@
         formControlName="captchaAnswer"
         autocomplete="off"
         [attr.maxlength]="rules()?.captcha?.maxLength"
-        placeholder="Символы с картинки"
+        [attr.placeholder]="t('form.captcha.placeholder')"
         [attr.aria-invalid]="controlError('captchaAnswer') ? 'true' : null"
       />
 
@@ -207,16 +210,16 @@
   <div class="form__actions">
     <button class="button button--primary" type="submit" [disabled]="submitting()">
       @if (submitting()) {
-        Отправка…
+        {{ t('form.submitting') }}
       } @else if (parentId()) {
-        Ответить
+        {{ t('thread.reply') }}
       } @else {
-        Отправить
+        {{ t('form.submit') }}
       }
     </button>
 
     @if (parentId()) {
-      <button class="button" type="button" (click)="cancel()">Отмена</button>
+      <button class="button" type="button" (click)="cancel()">{{ t('form.cancel') }}</button>
     }
   </div>
 </form>

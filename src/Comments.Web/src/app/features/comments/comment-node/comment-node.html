@@ -27,7 +27,7 @@
     }}</time>
 
     <button type="button" class="node__reply" (click)="toggleReply()">
-      {{ replying() ? 'Отмена' : 'Ответить' }}
+      {{ replying() ? t('thread.cancel') : t('thread.reply') }}
     </button>
   </header>
 

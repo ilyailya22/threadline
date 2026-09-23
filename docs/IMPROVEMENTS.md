@@ -79,7 +79,7 @@ Natural next features for a comments board. None is in the brief.
 | D5 | Quote-reply (the grey quoted line in the screenshot) | S |
 | D6 | Editing within a short window, with an "edited" marker | M |
 | D7 | Accounts (optional) — OIDC login, so identity is not just "name + e-mail typed in a form" | L |
-| D8 | Localisation: UI strings to resource files, English alongside Russian | M |
+| D8 | More languages: the catalogue in `core/i18n` is two-column today (English, Ukrainian) | S |
 | D9 | Markdown-lite input that compiles to the same four allowed tags | M |
 
 ## E. Engineering quality

@@ -1,5 +1,6 @@
 import { Component, ElementRef, effect, inject, viewChild } from '@angular/core';
 
+import { I18n } from '../../core/i18n/i18n';
 import { LightboxService } from './lightbox.service';
 
 /**
@@ -28,6 +29,7 @@ export class Lightbox {
   private readonly dialogRef = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
 
   protected readonly lightbox = inject(LightboxService);
+  protected readonly t = inject(I18n).t;
 
   constructor() {
     effect(() => {

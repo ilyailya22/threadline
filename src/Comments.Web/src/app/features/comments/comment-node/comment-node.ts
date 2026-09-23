@@ -1,5 +1,6 @@
-import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, input, output, signal } from '@angular/core';
 
+import { I18n } from '../../../core/i18n/i18n';
 import type { CommentPosted, CommentTreeNode } from '../../../core/api/models';
 import { RelativeTimePipe } from '../../../shared/relative-time.pipe';
 import { SanitizedHtmlPipe } from '../../../shared/sanitized-html.pipe';
@@ -9,7 +10,7 @@ import { CommentForm } from '../comment-form/comment-form';
 /**
  * One comment in a thread, and — recursively — everything below it.
  *
- * The recursion is the assignment's "каскадное отображение": a component that renders itself for
+ * The recursion is the assignment's cascading display: a component that renders itself for
  * each reply, to any depth the server sends. Indentation is capped in CSS so that a deep thread
  * stays readable on a phone instead of collapsing into a one-word-per-line column.
  */
@@ -21,6 +22,8 @@ import { CommentForm } from '../comment-form/comment-form';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CommentNodeComponent {
+  protected readonly t = inject(I18n).t;
+
   readonly comment = input.required<CommentTreeNode>();
 
   /** Raised when a reply is posted anywhere in this subtree, so the page can show it at once. */

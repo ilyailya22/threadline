@@ -2,7 +2,7 @@ import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core'
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { CommentsApi } from '../../../core/api/comments-api';
-import type { AttachmentReadyEvent, CommentNode, CommentPosted } from '../../../core/api/models';
+import type { CommentNode, CommentPosted } from '../../../core/api/models';
 import { CommentsRealtime } from '../../../core/realtime/comments-realtime';
 import { buildThreadTree, mergeNodes } from '../../../shared/thread-tree';
 
@@ -81,22 +81,6 @@ export class OpenThread {
     if (this.rootId() === comment.rootId) {
       this.add(comment);
     }
-  }
-
-  /** Swaps the "обрабатывается" placeholder for the processed file. */
-  applyAttachmentReady(event: AttachmentReadyEvent): void {
-    this.nodes.update((nodes) =>
-      nodes.map((node) =>
-        node.id === event.commentId
-          ? {
-              ...node,
-              attachments: node.attachments.map((a) =>
-                a.id === event.attachment.id ? event.attachment : a,
-              ),
-            }
-          : node,
-      ),
-    );
   }
 
   private add(node: CommentNode): void {

@@ -9,7 +9,6 @@
 export type CommentSortField = 'createdAt' | 'userName' | 'email';
 export type SortDirection = 'ascending' | 'descending';
 export type AttachmentKind = 'Image' | 'TextFile';
-export type AttachmentStatus = 'Pending' | 'Ready' | 'Failed';
 
 export interface Author {
   readonly id: string;
@@ -21,7 +20,6 @@ export interface Author {
 export interface Attachment {
   readonly id: string;
   readonly kind: AttachmentKind;
-  readonly status: AttachmentStatus;
   readonly contentType: string;
   readonly originalFileName: string;
   readonly sizeBytes: number;
@@ -59,12 +57,6 @@ export interface CommentTreeNode extends CommentNode {
   readonly replies: readonly CommentTreeNode[];
 }
 
-/** Pushed when the worker has finished processing an attachment. */
-export interface AttachmentReadyEvent {
-  readonly commentId: string;
-  readonly attachment: Attachment;
-}
-
 /** One page of a thread: a flat, depth-first list the client assembles into a tree. */
 export interface CommentThread {
   readonly rootId: string;
@@ -90,7 +82,7 @@ export interface CreateCommentResult {
   readonly parentId?: string | null;
   readonly createdAt: string;
   readonly textHtml: string;
-  /** Still pending when returned; the "ready" push replaces each one by id. */
+  /** Already processed: an image comes back downscaled, with its thumbnail. */
   readonly attachments: readonly Attachment[];
 }
 
