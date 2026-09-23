@@ -1,6 +1,7 @@
 using Threadline.Comments.Api.Contracts;
 using Threadline.Comments.Application.Attachments;
 using Threadline.Comments.Application.Comments.Dtos;
+using Threadline.Comments.Application.Common.Abstractions;
 using Threadline.Comments.Application.Comments.Queries.GetCommentThread;
 using Threadline.Comments.Application.Comments.Queries.GetTopLevelComments;
 using Threadline.Comments.Application.Comments.Queries.PreviewComment;
@@ -15,7 +16,7 @@ namespace Threadline.Comments.Api.Controllers;
 [ApiController]
 [Route("api/comments")]
 [Produces("application/json")]
-public sealed class CommentsController(ISender sender) : ControllerBase
+public sealed class CommentsController(ISender sender, ICurrentUser currentUser) : ControllerBase
 {
     /// <summary>
     /// The main page: top-level comments, 25 per page, sortable by user name, e-mail or date in
@@ -115,7 +116,9 @@ public sealed class CommentsController(ISender sender) : ControllerBase
             ? null
             : new AttachmentUpload(file.FileName, file.ContentType, file.Length, content);
 
-        var result = await sender.Send(request.ToCommand(upload), cancellationToken);
+        // The author comes from the cookie, never from the form: a caller may send any name and
+        // address it likes, and for a signed-in session none of it is read.
+        var result = await sender.Send(request.ToCommand(currentUser.Id, upload), cancellationToken);
 
         return CreatedAtAction(nameof(GetThread), new { rootId = result.RootId }, result);
     }

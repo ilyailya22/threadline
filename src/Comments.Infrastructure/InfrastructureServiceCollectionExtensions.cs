@@ -1,7 +1,9 @@
 using System.Reflection;
 using Threadline.Comments.Application.Attachments;
+using Threadline.Comments.Application.Accounts;
 using Threadline.Comments.Application.Captcha;
 using Threadline.Comments.Application.Common.Abstractions;
+using Threadline.Comments.Infrastructure.Accounts;
 using Threadline.Comments.Infrastructure.Caching;
 using Threadline.Comments.Infrastructure.Captcha;
 using Threadline.Comments.Infrastructure.Common;
@@ -37,6 +39,8 @@ public static class InfrastructureServiceCollectionExtensions
             .AddOptionsSection<ElasticsearchOptions>(configuration, ElasticsearchOptions.SectionName)
             .AddOptionsSection<OutboxOptions>(configuration, OutboxOptions.SectionName);
 
+        services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
+
         services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
         services.AddSingleton<IIpAddressHasher, IpAddressHasher>();
         services.AddSingleton<IAttachmentDtoMapper, AttachmentDtoMapper>();
@@ -47,6 +51,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddCache(configuration);
         services.AddSearch();
         services.AddBlobStorage();
+        services.AddAccounts(configuration);
 
         return services;
     }
@@ -149,6 +154,38 @@ public static class InfrastructureServiceCollectionExtensions
         // request rather than per process, which is enough to stop a burst of pages each paying
         // for the check.
         services.AddScoped<ISearchIndexFreshness, SearchIndexFreshness>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// What an account needs: a password hasher, confirmation tokens and a way to send mail.
+    /// </summary>
+    /// <remarks>
+    /// Without an SMTP host the sender writes to the log instead. That keeps a fresh clone
+    /// working — registration succeeds and the confirmation link is in the console — rather than
+    /// failing on configuration nobody has yet.
+    /// </remarks>
+    public static IServiceCollection AddAccounts(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+
+        services.AddSingleton<IPasswordHasher, IdentityPasswordHasher>();
+        services.AddSingleton<IConfirmationTokens, Sha256ConfirmationTokens>();
+        services.AddScoped<IAccountEmails, AccountEmails>();
+
+        var host = configuration.GetSection(EmailOptions.SectionName)[nameof(EmailOptions.Host)];
+
+        if (string.IsNullOrWhiteSpace(host))
+        {
+            services.AddSingleton<IEmailSender, LoggingEmailSender>();
+        }
+        else
+        {
+            services.AddSingleton<IEmailSender, SmtpEmailSender>();
+        }
 
         return services;
     }

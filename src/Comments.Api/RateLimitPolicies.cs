@@ -27,6 +27,9 @@ public static class RateLimitPolicies
     public const string Preview = "preview";
     public const string Captcha = "captcha";
 
+    /// <summary>Registering, signing in, confirming — the endpoints worth guessing at.</summary>
+    public const string Auth = "auth";
+
     public static IServiceCollection AddApiRateLimiting(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -41,6 +44,10 @@ public static class RateLimitPolicies
         var preview = section.GetValue("PreviewPerMinute", 60);
         var captcha = section.GetValue("CaptchaPerMinute", 30);
         var write = section.GetValue("WritePerMinute", 10);
+
+        // Ten a minute is generous for a person typing a password and miserly for a script working
+        // through a word list.
+        var auth = section.GetValue("AuthPerMinute", 10);
 
         services.AddRateLimiter(options =>
         {
@@ -65,6 +72,7 @@ public static class RateLimitPolicies
 
             // Ten comments a minute is far more than a person types and far less than a script wants.
             options.AddPolicy(Write, context => Partition(context, permitLimit: write, window: 1));
+            options.AddPolicy(Auth, context => Partition(context, permitLimit: auth, window: 1));
         });
 
         return services;

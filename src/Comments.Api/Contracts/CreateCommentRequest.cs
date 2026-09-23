@@ -46,7 +46,10 @@ public sealed class CreateCommentRequest
     /// <summary>Optional image (JPG/GIF/PNG) or text file (TXT).</summary>
     public IFormFile? File { get; set; }
 
-    /// <summary>The command this form becomes, with the file (if any) already opened by the caller.</summary>
-    public CreateCommentCommand ToCommand(AttachmentUpload? attachment) =>
-        new(UserName, Email, HomePage, Text, ParentId, CaptchaId, CaptchaAnswer, attachment);
+    /// <summary>
+    /// The command this form becomes, with the file (if any) already opened by the caller and the
+    /// author taken from the cookie rather than from the form.
+    /// </summary>
+    public CreateCommentCommand ToCommand(Guid? authorId, AttachmentUpload? attachment) =>
+        new(authorId, UserName, Email, HomePage, Text, ParentId, CaptchaId, CaptchaAnswer, attachment);
 }
