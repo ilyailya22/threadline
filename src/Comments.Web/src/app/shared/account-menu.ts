@@ -148,15 +148,26 @@ import { Avatar } from './avatar';
       background: var(--surface-raised, rgb(255 255 255 / 6%));
     }
 
+    /* An outlined button, not a word. This is the only way into an account, and set in plain text
+       beside the language switch it read as a caption — people looked straight past it. */
     .menu__signin {
-      color: var(--text);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.85rem;
+      border: 1px solid var(--accent);
+      border-radius: 999px;
+      color: var(--accent);
       font-size: 0.82rem;
       font-weight: 600;
       text-decoration: none;
+      white-space: nowrap;
     }
 
-    .menu__signin:hover {
-      color: var(--accent);
+    .menu__signin:hover,
+    .menu__signin:focus-visible {
+      background: var(--accent);
+      color: var(--accent-contrast, #fff);
     }
   `,
 })
