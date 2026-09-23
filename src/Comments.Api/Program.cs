@@ -76,7 +76,13 @@ var app = builder.Build();
 // API has no public ingress, so the only thing that can reach it is the proxy in front of it.
 var forwardedHeaders = new ForwardedHeadersOptions
 {
-    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+    // XForwardedHost as well: nginx has to overwrite Host with the internal name for Container
+    // Apps to route at all, so the browser's host arrives separately. Without it the API cannot
+    // name itself — most visibly in the OAuth redirect_uri, which would point at an internal
+    // address that Google refuses to redirect to.
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor
+        | ForwardedHeaders.XForwardedProto
+        | ForwardedHeaders.XForwardedHost,
     ForwardLimit = 2,
 };
 
