@@ -30,8 +30,9 @@ export interface CreateCommentPayload {
   readonly homePage?: string | null;
   readonly text: string;
   readonly parentId?: string | null;
-  readonly captchaId: string;
-  readonly captchaAnswer: string;
+  /** Null for a signed-in account: it posts as itself and is not asked to prove it is a person. */
+  readonly captchaId?: string | null;
+  readonly captchaAnswer?: string | null;
   readonly file?: File | null;
 }
 
@@ -118,11 +119,16 @@ export class CommentsApi {
   create(payload: CreateCommentPayload): Observable<CreateCommentResult> {
     const form = new FormData();
 
-    form.append('userName', payload.userName);
-    form.append('email', payload.email);
     form.append('text', payload.text);
-    form.append('captchaId', payload.captchaId);
-    form.append('captchaAnswer', payload.captchaAnswer);
+
+    // A guest sends who they are and a solved challenge; an account sends neither, and the server
+    // reads both from the session instead.
+    if (payload.captchaId && payload.captchaAnswer) {
+      form.append('userName', payload.userName);
+      form.append('email', payload.email);
+      form.append('captchaId', payload.captchaId);
+      form.append('captchaAnswer', payload.captchaAnswer);
+    }
 
     if (payload.homePage) {
       form.append('homePage', payload.homePage);
@@ -136,7 +142,10 @@ export class CommentsApi {
       form.append('file', payload.file, payload.file.name);
     }
 
-    return this.http.post<CreateCommentResult>(`${this.baseUrl}/api/comments`, form);
+    // The session cookie has to travel with this: for an account it is the whole identity.
+    return this.http.post<CreateCommentResult>(`${this.baseUrl}/api/comments`, form, {
+      withCredentials: true,
+    });
   }
 
   /** Absolute URL for an attachment path returned by the API. */

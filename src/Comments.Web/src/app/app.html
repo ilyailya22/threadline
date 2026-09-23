@@ -2,9 +2,13 @@
 
 <div class="shell">
   <header class="shell__header">
-    <span class="shell__brand">Threadline</span>
+    <a class="shell__brand" routerLink="/">Threadline</a>
     <span class="shell__tagline">{{ t('app.tagline') }}</span>
-    <app-language-switch class="shell__language" />
+
+    <div class="shell__tools">
+      <app-account-menu />
+      <app-language-switch />
+    </div>
   </header>
 
   <main id="main" class="shell__main">

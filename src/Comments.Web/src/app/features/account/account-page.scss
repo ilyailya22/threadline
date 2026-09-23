@@ -1,0 +1,104 @@
+.account {
+  max-width: 34rem;
+  margin: 2rem auto;
+  display: grid;
+  gap: 1.25rem;
+}
+
+.account__title {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.account__notice {
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.account__notice-done {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.account__link {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.account__identity {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.account__avatar {
+  --avatar-size: 5rem;
+}
+
+.account__identity-text {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.account__email {
+  margin: 0;
+  font-weight: 600;
+}
+
+.account__providers {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.account__avatar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+.account__upload {
+  cursor: pointer;
+}
+
+.account__upload input {
+  display: none;
+}
+
+.account__form {
+  display: grid;
+  gap: 1rem;
+}
+
+.account__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.account__saved {
+  color: var(--accent);
+  font-size: 0.85rem;
+}
+
+.account__error {
+  margin: 0;
+  color: var(--danger, #f87171);
+  font-size: 0.85rem;
+}
