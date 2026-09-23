@@ -36,6 +36,36 @@ public sealed partial class UserName : ValueObject
         return new UserName(candidate);
     }
 
+    /// <summary>
+    /// The nickname a new account starts with, derived from the address it registered with.
+    /// </summary>
+    /// <remarks>
+    /// The local part of an address is nearly a nickname already, and asking someone to invent one
+    /// during sign-up is a step most of them do not want. It is squeezed into the alphabet the
+    /// assignment allows — dots, plus-addressing and everything else dropped — and padded if what
+    /// is left is too short, so "j.doe+news@example.com" becomes "jdoe" and "x@example.com"
+    /// becomes "x1". The name is not unique and never was: two people may both be "jdoe".
+    /// </remarks>
+    public static UserName FromEmail(EmailAddress email)
+    {
+        ArgumentNullException.ThrowIfNull(email);
+
+        var local = email.Value[..email.Value.IndexOf('@', StringComparison.Ordinal)];
+        var letters = new string([.. local.Where(char.IsAsciiLetterOrDigit)]);
+
+        if (letters.Length > MaxLength)
+        {
+            letters = letters[..MaxLength];
+        }
+
+        while (letters.Length < MinLength)
+        {
+            letters += letters.Length == 0 ? "user" : "1";
+        }
+
+        return new UserName(letters);
+    }
+
     public static bool IsValid(string? value) =>
         !string.IsNullOrWhiteSpace(value) && Validator().IsMatch(value.Trim());
 

@@ -26,6 +26,8 @@ builder.Services
     .AddInfrastructure(configuration)
     .AddInfrastructureInitializer(applyMigrations: true)
     .AddRequestContext()
+    .AddAccountAuthentication(configuration)
+    .AddAuthorization()
     .AddLoadTestCaptchaBypass(configuration, environment);
 
 // The API hosts only the SignalR fan-out consumers; indexing and image processing belong to the
@@ -82,6 +84,8 @@ app.UseSecurityHeaders();
 app.UseResponseCompression();
 app.UseMiddleware<ClientIdCookieMiddleware>();
 app.UseCors(ApiServiceCollectionExtensions.SpaCorsPolicy);
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseRateLimiter();
 app.UseOutputCache();
 

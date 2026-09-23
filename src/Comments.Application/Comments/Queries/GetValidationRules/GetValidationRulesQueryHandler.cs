@@ -1,3 +1,4 @@
+using Threadline.Comments.Application.Accounts;
 using Threadline.Comments.Application.Attachments;
 using Threadline.Comments.Application.Captcha;
 using Threadline.Comments.Application.Comments.Sanitization;
@@ -73,6 +74,13 @@ public sealed class GetValidationRulesQueryHandler : IRequestHandler<GetValidati
                 MaxImageHeight = Attachment.MaxImageHeight,
                 TextExtensions = [.. textFiles.SelectMany(t => t.Extensions)],
                 MaxTextFileBytes = Attachment.MaxTextFileBytes,
+            },
+            Password = new FieldRulesDto
+            {
+                Required = true,
+                MinLength = PasswordPolicy.MinLength,
+                MaxLength = PasswordPolicy.MaxLength,
+                Description = $"At least {PasswordPolicy.MinLength} characters. Length is the only rule.",
             },
             PageSize = Paging.DefaultPageSize,
         };

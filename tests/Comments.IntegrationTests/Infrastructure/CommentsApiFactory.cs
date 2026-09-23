@@ -1,10 +1,13 @@
 using System.Data.Common;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Threadline.Comments.Application.Accounts;
 using Threadline.Comments.Application.Captcha;
 using Threadline.Comments.Application.Common.Abstractions;
 
 using Threadline.Comments.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -198,6 +201,7 @@ public sealed class CommentsApiFactory : WebApplicationFactory<Program>, IAsyncL
             ["RateLimiting:WritePerMinute"] = "10000",
             ["RateLimiting:CaptchaPerMinute"] = "10000",
             ["RateLimiting:ReadPerMinute"] = "100000",
+            ["RateLimiting:AuthPerMinute"] = "10000",
             ["Outbox:PollInterval"] = "00:00:00.100",
         };
 
@@ -205,7 +209,19 @@ public sealed class CommentsApiFactory : WebApplicationFactory<Program>, IAsyncL
         {
             builder.UseSetting(key, value);
         }
+
+        // Confirmation tokens only ever exist in an e-mail, so a test that wants to follow the link
+        // has to read the e-mail. This keeps the last one.
+        builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IAccountEmails>();
+            services.AddSingleton<CapturedEmails>();
+            services.AddSingleton<IAccountEmails>(provider => provider.GetRequiredService<CapturedEmails>());
+        });
     }
+
+    /// <summary>The confirmation token from the most recent registration.</summary>
+    public CapturedEmails Emails => Services.GetRequiredService<CapturedEmails>();
 
     /// <summary>
     /// Explicit, because <see cref="WebApplicationFactory{TEntryPoint}"/> already has a

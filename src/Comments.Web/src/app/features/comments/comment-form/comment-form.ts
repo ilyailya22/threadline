@@ -16,6 +16,7 @@ import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators, type AbstractControl } from '@angular/forms';
 
 import { CommentsApi } from '../../../core/api/comments-api';
+import { Auth } from '../../../core/auth/auth';
 import { I18n } from '../../../core/i18n/i18n';
 import type { MessageKey } from '../../../core/i18n/messages';
 import type {
@@ -24,6 +25,7 @@ import type {
   ProblemDetails,
   ValidationRules,
 } from '../../../core/api/models';
+import { Avatar } from '../../../shared/avatar';
 import { SanitizedHtmlPipe } from '../../../shared/sanitized-html.pipe';
 import { checkAttachment, describeImageSize } from './attachment-check';
 import { balancedTagsValidator, httpUrlValidator, validatorsFor } from './comment-form.validators';
@@ -48,7 +50,7 @@ interface SelectedFile {
   selector: 'app-comment-form',
   templateUrl: './comment-form.html',
   styleUrl: './comment-form.scss',
-  imports: [ReactiveFormsModule, SanitizedHtmlPipe],
+  imports: [ReactiveFormsModule, SanitizedHtmlPipe, Avatar],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CommentForm {
@@ -57,6 +59,14 @@ export class CommentForm {
   private readonly destroyRef = inject(DestroyRef);
 
   protected readonly t = inject(I18n).t;
+
+  private readonly auth = inject(Auth);
+
+  /**
+   * A signed-in account posts as itself: its name and address are on the session, and the CAPTCHA
+   * is there to tell a person from a script, which signing in already did.
+   */
+  protected readonly account = this.auth.account;
 
   private readonly textAreaRef = viewChild.required<ElementRef<HTMLTextAreaElement>>('textArea');
 
@@ -120,14 +130,22 @@ export class CommentForm {
   });
 
   constructor() {
-    this.refreshCaptcha();
+    if (!this.account()) {
+      this.refreshCaptcha();
 
-    // Remembering who you are between comments is the difference between a board people use and
-    // one they post to once. Only the identity fields are stored, never the message.
-    const remembered = identityStorage.read();
+      // Remembering who you are between comments is the difference between a board people use and
+      // one they post to once. Only the identity fields are stored, never the message.
+      const remembered = identityStorage.read();
 
-    if (remembered) {
-      this.form.patchValue(remembered);
+      if (remembered) {
+        this.form.patchValue(remembered);
+      }
+    } else {
+      // Nothing to type, nothing to validate.
+      for (const name of ['userName', 'email', 'homePage', 'captchaAnswer'] as const) {
+        this.form.controls[name].clearValidators();
+        this.form.controls[name].updateValueAndValidity({ emitEvent: false });
+      }
     }
 
     this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => {
@@ -149,14 +167,18 @@ export class CommentForm {
   private applyRules(rules: ValidationRules): void {
     const { controls } = this.form;
 
-    controls.userName.setValidators(validatorsFor(rules.userName));
-    controls.email.setValidators(validatorsFor(rules.email));
-    controls.homePage.setValidators([...validatorsFor(rules.homePage), httpUrlValidator]);
     controls.text.setValidators([
       ...validatorsFor(rules.text),
       balancedTagsValidator(rules.allowedTags),
     ]);
-    controls.captchaAnswer.setValidators(validatorsFor(rules.captcha));
+
+    // The fields an account never fills in have no rules to enforce.
+    if (!this.account()) {
+      controls.userName.setValidators(validatorsFor(rules.userName));
+      controls.email.setValidators(validatorsFor(rules.email));
+      controls.homePage.setValidators([...validatorsFor(rules.homePage), httpUrlValidator]);
+      controls.captchaAnswer.setValidators(validatorsFor(rules.captcha));
+    }
 
     for (const control of Object.values(controls)) {
       control.updateValueAndValidity({ emitEvent: false });
@@ -281,9 +303,10 @@ export class CommentForm {
   protected submit(): void {
     this.form.markAllAsTouched();
 
+    const me = this.account();
     const challenge = this.captcha();
 
-    if (this.form.invalid || !challenge || this.submitting()) {
+    if (this.form.invalid || this.submitting() || (!me && !challenge)) {
       return;
     }
 
@@ -291,11 +314,16 @@ export class CommentForm {
     this.serverError.set(null);
 
     const value = this.form.getRawValue();
-    const identity: Identity = {
-      userName: value.userName.trim(),
-      email: value.email.trim(),
-      homePage: value.homePage.trim(),
-    };
+
+    // For an account these are what the server will attach anyway; for a guest they are what was
+    // typed. Either way they are what the new row shows until the list reloads.
+    const identity: Identity = me
+      ? { userName: me.userName, email: me.email, homePage: me.homePage ?? '' }
+      : {
+          userName: value.userName.trim(),
+          email: value.email.trim(),
+          homePage: value.homePage.trim(),
+        };
 
     this.api
       .create({
@@ -303,15 +331,19 @@ export class CommentForm {
         homePage: identity.homePage || null,
         text: value.text,
         parentId: this.parentId(),
-        captchaId: challenge.id,
-        captchaAnswer: value.captchaAnswer.trim(),
+        captchaId: challenge?.id ?? null,
+        captchaAnswer: me ? null : value.captchaAnswer.trim(),
         file: this.selected()?.file ?? null,
       })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (result) => {
           this.submitting.set(false);
-          identityStorage.write(identity);
+
+          if (!me) {
+            identityStorage.write(identity);
+          }
+
           this.resetAfterSubmit();
           this.created.emit({
             result,
@@ -323,7 +355,10 @@ export class CommentForm {
 
           // A CAPTCHA is one-shot, so a failed submission always needs a fresh one — otherwise the
           // user's second attempt fails for a reason that has nothing to do with what they fixed.
-          this.refreshCaptcha();
+          if (!me) {
+            this.refreshCaptcha();
+          }
+
           this.applyServerErrors(error);
         },
       });
@@ -406,7 +441,10 @@ export class CommentForm {
     this.previewHtml.set(null);
     this.revokeUrls();
     this.selected.set(null);
-    this.refreshCaptcha();
+
+    if (!this.account()) {
+      this.refreshCaptcha();
+    }
   }
 
   private revokeUrls(): void {

@@ -38,8 +38,12 @@ public sealed class CreateCommentCommandHandler(
         ArgumentNullException.ThrowIfNull(request);
 
         // CAPTCHA first: it is the cheapest check that stops the most traffic, and validating it
-        // before touching the database keeps a bot flood off the connection pool.
-        await EnsureCaptchaSolvedAsync(request, cancellationToken);
+        // before touching the database keeps a bot flood off the connection pool. A signed-in
+        // account has already proved it is a person, and to it the challenge is only friction.
+        if (request.AuthorId is null)
+        {
+            await EnsureCaptchaSolvedAsync(request, cancellationToken);
+        }
 
         // Sanitising happens before anything is written, so nothing unsafe can reach storage even if
         // a later step fails.
@@ -101,9 +105,26 @@ public sealed class CreateCommentCommandHandler(
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
+        if (request.AuthorId is { } accountId)
+        {
+            return await users.FindByIdAsync(accountId, cancellationToken) is { IsRegistered: true } account
+                ? account
+                : throw new NotFoundException("Account", accountId);
+        }
+
         var userName = UserName.Create(request.UserName);
         var email = EmailAddress.Create(request.Email);
         var homePage = HomePageUrl.CreateOrNull(request.HomePage);
+
+        // An address that belongs to an account is not available to guests. Without this, anyone
+        // could type a registered person's address and post as them — the board shows the address
+        // next to every comment, so the impersonation would be convincing.
+        if (await users.FindAccountByEmailAsync(email, cancellationToken) is not null)
+        {
+            throw new InputValidationException(
+                "email",
+                "This e-mail belongs to an account. Sign in to post with it.");
+        }
 
         var author = await users.FindAsync(userName, email, cancellationToken);
 

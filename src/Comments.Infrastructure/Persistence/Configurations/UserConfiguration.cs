@@ -34,6 +34,13 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .HasMaxLength(HomePageUrl.MaxLength)
             .IsUnicode(false);
 
+        builder.Property(u => u.IsRegistered).IsRequired();
+        builder.Property(u => u.PasswordHash).HasMaxLength(256).IsUnicode(false);
+        builder.Property(u => u.GoogleSubject).HasMaxLength(128).IsUnicode(false);
+        builder.Property(u => u.ConfirmationTokenHash).HasMaxLength(128).IsUnicode(false);
+        builder.Property(u => u.AvatarPath).HasMaxLength(512).IsUnicode(false);
+        builder.Property(u => u.ExternalAvatarUrl).HasMaxLength(512).IsUnicode(false);
+
         builder.Property(u => u.CreatedAt).IsRequired();
         builder.Property(u => u.LastPostedAt).IsRequired();
 
@@ -45,5 +52,19 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .HasDatabaseName("UX_Users_UserName_Email");
 
         builder.HasIndex(u => u.Email).HasDatabaseName("IX_Users_Email");
+
+        // An address belongs to at most one account. Filtered, because guests share addresses
+        // freely — two people called Ann and Anna may both have typed the same one — and only a
+        // registered owner reserves it.
+        builder.HasIndex(u => u.Email)
+            .IsUnique()
+            .HasFilter("[IsRegistered] = 1")
+            .HasDatabaseName("UX_Users_Email_Registered");
+
+        // One Google identity, one account.
+        builder.HasIndex(u => u.GoogleSubject)
+            .IsUnique()
+            .HasFilter("[GoogleSubject] IS NOT NULL")
+            .HasDatabaseName("UX_Users_GoogleSubject");
     }
 }

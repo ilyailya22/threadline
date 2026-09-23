@@ -61,5 +61,5 @@ public sealed class GetValidationRulesQueryHandlerTests
         Regex.IsMatch(value, pattern, RegexOptions.None, TimeSpan.FromSeconds(1));
 
     private static CreateCommentCommand Command() =>
-        new("Anonym", "anonym@example.com", null, "Hello", null, Guid.CreateVersion7(), "AB3K7", null);
+        new(null, "Anonym", "anonym@example.com", null, "Hello", null, Guid.CreateVersion7(), "AB3K7", null);
 }

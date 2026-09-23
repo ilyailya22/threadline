@@ -1,59 +1,66 @@
 <form class="form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
-  <div class="form__grid">
-    <label class="field">
-      <span class="field__label"
-        >{{ t('form.userName') }} <span class="field__required" aria-hidden="true">*</span></span
-      >
-      <input
-        class="field__input"
-        type="text"
-        formControlName="userName"
-        autocomplete="nickname"
-        [attr.maxlength]="rules()?.userName?.maxLength"
-        [attr.aria-invalid]="controlError('userName') ? 'true' : null"
-      />
-      @if (controlError('userName'); as error) {
-        <span class="field__error">{{ error }}</span>
-      } @else {
-        <span class="field__hint">{{ t('validation.latin') }}</span>
-      }
-    </label>
+  @if (account(); as me) {
+    <p class="form__identity">
+      <app-avatar [name]="me.userName" [url]="me.avatarUrl" />
+      {{ t('form.postingAs', { name: me.userName }) }}
+    </p>
+  } @else {
+    <div class="form__grid">
+      <label class="field">
+        <span class="field__label"
+          >{{ t('form.userName') }} <span class="field__required" aria-hidden="true">*</span></span
+        >
+        <input
+          class="field__input"
+          type="text"
+          formControlName="userName"
+          autocomplete="nickname"
+          [attr.maxlength]="rules()?.userName?.maxLength"
+          [attr.aria-invalid]="controlError('userName') ? 'true' : null"
+        />
+        @if (controlError('userName'); as error) {
+          <span class="field__error">{{ error }}</span>
+        } @else {
+          <span class="field__hint">{{ t('validation.latin') }}</span>
+        }
+      </label>
 
-    <label class="field">
-      <span class="field__label"
-        >{{ t('form.email') }} <span class="field__required" aria-hidden="true">*</span></span
-      >
-      <input
-        class="field__input"
-        type="email"
-        formControlName="email"
-        autocomplete="email"
-        [attr.maxlength]="rules()?.email?.maxLength"
-        [attr.aria-invalid]="controlError('email') ? 'true' : null"
-      />
-      @if (controlError('email'); as error) {
-        <span class="field__error">{{ error }}</span>
-      }
-    </label>
+      <label class="field">
+        <span class="field__label"
+          >{{ t('form.email') }} <span class="field__required" aria-hidden="true">*</span></span
+        >
+        <input
+          class="field__input"
+          type="email"
+          formControlName="email"
+          autocomplete="email"
+          [attr.maxlength]="rules()?.email?.maxLength"
+          [attr.aria-invalid]="controlError('email') ? 'true' : null"
+        />
+        @if (controlError('email'); as error) {
+          <span class="field__error">{{ error }}</span>
+        }
+      </label>
 
-    <label class="field field--wide">
-      <span class="field__label">{{ t('form.homePage') }}</span>
-      <input
-        class="field__input"
-        type="url"
-        formControlName="homePage"
-        placeholder="https://example.com"
-        autocomplete="url"
-        [attr.maxlength]="rules()?.homePage?.maxLength"
-        [attr.aria-invalid]="controlError('homePage') ? 'true' : null"
-      />
-      @if (controlError('homePage'); as error) {
-        <span class="field__error">{{ error }}</span>
-      } @else {
-        <span class="field__hint">{{ t('form.homePage.hint') }}</span>
-      }
-    </label>
-  </div>
+      <label class="field field--wide">
+        <span class="field__label">{{ t('form.homePage') }}</span>
+        <input
+          class="field__input"
+          type="url"
+          formControlName="homePage"
+          placeholder="https://example.com"
+          autocomplete="url"
+          [attr.maxlength]="rules()?.homePage?.maxLength"
+          [attr.aria-invalid]="controlError('homePage') ? 'true' : null"
+        />
+        @if (controlError('homePage'); as error) {
+          <span class="field__error">{{ error }}</span>
+        } @else {
+          <span class="field__hint">{{ t('form.homePage.hint') }}</span>
+        }
+      </label>
+    </div>
+  }
 
   <div class="field field--wide">
     <div class="toolbar" role="group" [attr.aria-label]="t('form.tags.group')">
@@ -159,48 +166,50 @@
       }
     </div>
 
-    <div class="field">
-      <span class="field__label"
-        >{{ t('form.captcha') }} <span class="field__required" aria-hidden="true">*</span></span
-      >
-
-      <div class="captcha">
-        @if (captcha(); as challenge) {
-          <img
-            class="captcha__image"
-            [src]="challenge.imageUrl"
-            [alt]="t('form.captcha.alt')"
-            width="220"
-            height="70"
-          />
-        } @else {
-          <div class="captcha__placeholder" aria-hidden="true"></div>
-        }
-
-        <button
-          type="button"
-          class="captcha__refresh"
-          (click)="refreshCaptcha()"
-          [title]="t('form.captcha.refresh')"
+    @if (!account()) {
+      <div class="field">
+        <span class="field__label"
+          >{{ t('form.captcha') }} <span class="field__required" aria-hidden="true">*</span></span
         >
-          ⟳
-        </button>
+
+        <div class="captcha">
+          @if (captcha(); as challenge) {
+            <img
+              class="captcha__image"
+              [src]="challenge.imageUrl"
+              [alt]="t('form.captcha.alt')"
+              width="220"
+              height="70"
+            />
+          } @else {
+            <div class="captcha__placeholder" aria-hidden="true"></div>
+          }
+
+          <button
+            type="button"
+            class="captcha__refresh"
+            (click)="refreshCaptcha()"
+            [title]="t('form.captcha.refresh')"
+          >
+            ⟳
+          </button>
+        </div>
+
+        <input
+          class="field__input"
+          type="text"
+          formControlName="captchaAnswer"
+          autocomplete="off"
+          [attr.maxlength]="rules()?.captcha?.maxLength"
+          [attr.placeholder]="t('form.captcha.placeholder')"
+          [attr.aria-invalid]="controlError('captchaAnswer') ? 'true' : null"
+        />
+
+        @if (controlError('captchaAnswer'); as error) {
+          <span class="field__error">{{ error }}</span>
+        }
       </div>
-
-      <input
-        class="field__input"
-        type="text"
-        formControlName="captchaAnswer"
-        autocomplete="off"
-        [attr.maxlength]="rules()?.captcha?.maxLength"
-        [attr.placeholder]="t('form.captcha.placeholder')"
-        [attr.aria-invalid]="controlError('captchaAnswer') ? 'true' : null"
-      />
-
-      @if (controlError('captchaAnswer'); as error) {
-        <span class="field__error">{{ error }}</span>
-      }
-    </div>
+    }
   </div>
 
   @if (serverError(); as error) {

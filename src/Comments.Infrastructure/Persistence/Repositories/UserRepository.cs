@@ -23,5 +23,31 @@ public sealed class UserRepository(AppDbContext context) : IUserRepository
             cancellationToken);
     }
 
+    public Task<User?> FindAccountByEmailAsync(
+        EmailAddress email,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(email);
+
+        // Hits UX_Users_Email_Registered, which holds exactly the accounts.
+        return context.Users.AsTracking().FirstOrDefaultAsync(
+            u => u.IsRegistered && u.Email == email,
+            cancellationToken);
+    }
+
+    public Task<User?> FindAccountByGoogleSubjectAsync(
+        string googleSubject,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(googleSubject);
+
+        return context.Users.AsTracking().FirstOrDefaultAsync(
+            u => u.GoogleSubject == googleSubject,
+            cancellationToken);
+    }
+
+    public Task<User?> FindByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+        context.Users.AsTracking().FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
+
     public void Add(User user) => context.Users.Add(user);
 }

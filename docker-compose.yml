@@ -109,6 +109,23 @@ services:
       retries: 10
     restart: unless-stopped
 
+  mailpit:
+    # A mailbox that goes nowhere: confirmation e-mails land here instead of in someone's inbox.
+    # http://localhost:8025 shows them.
+    image: axllent/mailpit:latest
+    container_name: tl-mailpit
+    ports:
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+    environment:
+      MP_MAX_MESSAGES: 200
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 1025 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
   # ---------------------------------------------------------------- application
 
   api:
@@ -123,6 +140,13 @@ services:
       ConnectionStrings__RabbitMq: "amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/"
       Elasticsearch__Url: "http://elasticsearch:9200"
       Storage__ConnectionString: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;"
+      Email__Host: "mailpit"
+      Email__Port: "1025"
+      Email__FromAddress: "no-reply@threadline.local"
+      Email__PublicUrl: "http://localhost:${WEB_PORT:-8080}"
+      Authentication__Google__ClientId: "${GOOGLE_CLIENT_ID:-}"
+      Authentication__Google__ClientSecret: "${GOOGLE_CLIENT_SECRET:-}"
+
       Privacy__IpHashPepper: ${IP_HASH_PEPPER:-change-me-in-production-please}
       Cors__AllowedOrigins__0: "http://localhost:${WEB_PORT:-8080}"
       Cors__AllowedOrigins__1: "http://localhost:4200"

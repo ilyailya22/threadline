@@ -1,0 +1,74 @@
+<section class="auth">
+  <h1 class="auth__title">
+    {{ isRegister() ? t('auth.register.title') : t('auth.signIn.title') }}
+  </h1>
+  <p class="auth__subtitle">
+    {{ isRegister() ? t('auth.register.subtitle') : t('auth.signIn.subtitle') }}
+  </p>
+
+  @if (providers().google) {
+    <button type="button" class="auth__google" (click)="continueWithGoogle()">
+      <span class="auth__google-mark" aria-hidden="true">G</span>
+      {{ t('auth.google') }}
+    </button>
+
+    <p class="auth__divider">
+      <span>{{ t('auth.or') }}</span>
+    </p>
+  }
+
+  <form class="auth__form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <label class="field">
+      <span class="field__label">{{ t('form.email') }}</span>
+      <input
+        class="field__input"
+        type="email"
+        formControlName="email"
+        autocomplete="email"
+        [attr.aria-invalid]="
+          form.controls.email.touched && form.controls.email.invalid ? 'true' : null
+        "
+      />
+      @if (form.controls.email.touched && form.controls.email.invalid) {
+        <span class="field__error">{{ t('validation.email') }}</span>
+      }
+    </label>
+
+    <label class="field">
+      <span class="field__label">{{ t('auth.password') }}</span>
+      <input
+        class="field__input"
+        type="password"
+        formControlName="password"
+        [attr.autocomplete]="isRegister() ? 'new-password' : 'current-password'"
+        [attr.aria-invalid]="
+          form.controls.password.touched && form.controls.password.invalid ? 'true' : null
+        "
+      />
+      @if (isRegister()) {
+        <span class="field__hint">{{ t('auth.password.hint', { min: 10 }) }}</span>
+      }
+    </label>
+
+    @if (error(); as message) {
+      <p class="auth__error" role="alert">{{ message }}</p>
+    }
+
+    <button class="button button--primary auth__submit" type="submit" [disabled]="submitting()">
+      {{
+        submitting()
+          ? t('auth.working')
+          : isRegister()
+            ? t('auth.register.action')
+            : t('auth.signIn.action')
+      }}
+    </button>
+  </form>
+
+  <p class="auth__switch">
+    {{ isRegister() ? t('auth.haveAccount') : t('auth.noAccount') }}
+    <button type="button" class="auth__link" (click)="switchMode()">
+      {{ isRegister() ? t('auth.signIn.action') : t('auth.register.action') }}
+    </button>
+  </p>
+</section>

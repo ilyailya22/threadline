@@ -1,0 +1,85 @@
+@if (account(); as me) {
+  <section class="account">
+    <h1 class="account__title">{{ t('account.title') }}</h1>
+
+    @if (!me.isEmailConfirmed) {
+      <p class="account__notice" role="status">
+        {{ t('account.unconfirmed', { email: me.email }) }}
+        @if (resent()) {
+          <span class="account__notice-done">{{ t('account.resent') }}</span>
+        } @else {
+          <button type="button" class="account__link" (click)="resendConfirmation()">
+            {{ t('account.resend') }}
+          </button>
+        }
+      </p>
+    }
+
+    <div class="account__identity">
+      <app-avatar class="account__avatar" [name]="me.userName" [url]="me.avatarUrl" />
+
+      <div class="account__identity-text">
+        <p class="account__email">{{ me.email }}</p>
+        <p class="account__providers">
+          {{ me.isGoogleLinked ? t('account.google.linked') : t('account.google.notLinked') }}
+        </p>
+
+        <div class="account__avatar-actions">
+          <label class="button account__upload">
+            {{ t('account.avatar.upload') }}
+            <input type="file" accept=".jpg,.jpeg,.png,.gif" (change)="onAvatarSelected($event)" />
+          </label>
+
+          @if (canRemoveAvatar()) {
+            <button type="button" class="button" (click)="removeAvatar()">
+              {{ t('account.avatar.remove') }}
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+
+    <form class="account__form" [formGroup]="form" (ngSubmit)="save()" novalidate>
+      <label class="field">
+        <span class="field__label">{{ t('form.userName') }}</span>
+        <input
+          class="field__input"
+          type="text"
+          formControlName="userName"
+          autocomplete="nickname"
+        />
+        @if (form.controls.userName.touched && form.controls.userName.invalid) {
+          <span class="field__error">{{ t('validation.latin') }}</span>
+        } @else {
+          <span class="field__hint">{{ t('account.userName.hint') }}</span>
+        }
+      </label>
+
+      <label class="field">
+        <span class="field__label">{{ t('form.homePage') }}</span>
+        <input
+          class="field__input"
+          type="url"
+          formControlName="homePage"
+          placeholder="https://example.com"
+          autocomplete="url"
+        />
+        <span class="field__hint">{{ t('form.homePage.hint') }}</span>
+      </label>
+
+      @if (error(); as message) {
+        <p class="account__error" role="alert">{{ message }}</p>
+      }
+
+      <div class="account__actions">
+        <button class="button button--primary" type="submit" [disabled]="saving()">
+          {{ saving() ? t('account.saving') : t('account.save') }}
+        </button>
+
+        @if (saved()) {
+          <span class="account__saved" role="status">{{ t('account.saved') }}</span>
+        }
+      </div>
+    </form>
+  </section>
+}

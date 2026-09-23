@@ -6,6 +6,10 @@ param location string
 param tags object
 param imageTag string
 param containerAppsEnvironmentId string
+
+// The environment default domain. Lets one app name another without referencing it, which Bicep
+// would otherwise call a cycle.
+param containerAppsEnvironmentDomain string
 param registryLoginServer string
 param registryId string
 param identityId string
@@ -25,6 +29,26 @@ param rabbitPassword string
 
 @secure()
 param applicationInsightsConnectionString string
+
+@description('Google OAuth client id. Empty hides the "Continue with Google" button.')
+param googleClientId string = ''
+
+@secure()
+@description('Google OAuth client secret.')
+param googleClientSecret string = ''
+
+@description('SMTP host for confirmation e-mail. Empty writes the message to the log instead.')
+param smtpHost string = ''
+
+param smtpPort int = 587
+
+param smtpUsername string = ''
+
+@secure()
+param smtpPassword string = ''
+
+@description('Address confirmation e-mail is sent from.')
+param emailFromAddress string = 'no-reply@example.com'
 
 // Container Apps resolve each other by app name inside the environment.
 var redisHost = '${applicationName}-${environmentName}-redis'
@@ -252,6 +276,8 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
         { name: 'sql-connection-string', value: sqlConnectionString }
         { name: 'rabbitmq-connection-string', value: rabbitConnectionString }
         { name: 'appinsights-connection-string', value: applicationInsightsConnectionString }
+        { name: 'google-client-secret', value: googleClientSecret }
+        { name: 'smtp-password', value: smtpPassword }
         {
           name: 'ip-hash-pepper'
           keyVaultUrl: 'https://${keyVaultName}${az.environment().suffixes.keyvaultDns}/secrets/ip-hash-pepper'
@@ -269,6 +295,21 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'ConnectionStrings__SqlServer', secretRef: 'sql-connection-string' }
             { name: 'ApplicationInsights__ConnectionString', secretRef: 'appinsights-connection-string' }
             { name: 'Privacy__IpHashPepper', secretRef: 'ip-hash-pepper' }
+
+            // Accounts. Both are optional: without Google credentials the button is not shown,
+            // and without an SMTP host the confirmation message goes to the log rather than
+            // failing a registration that otherwise worked.
+            { name: 'Authentication__Google__ClientId', value: googleClientId }
+            { name: 'Authentication__Google__ClientSecret', secretRef: 'google-client-secret' }
+            { name: 'Email__Host', value: smtpHost }
+            { name: 'Email__Port', value: string(smtpPort) }
+            { name: 'Email__UseStartTls', value: 'true' }
+            { name: 'Email__Username', value: smtpUsername }
+            { name: 'Email__Password', secretRef: 'smtp-password' }
+            { name: 'Email__FromAddress', value: emailFromAddress }
+            // Built from the environment's domain rather than from the web app, which would be a
+            // cycle: nginx already names the API, and the API now names the site.
+            { name: 'Email__PublicUrl', value: 'https://${applicationName}-${environmentName}-web.${containerAppsEnvironmentDomain}' }
           ])
           resources: {
             cpu: json('0.5')

@@ -29,6 +29,7 @@ public static class ApiServiceCollectionExtensions
     {
         services.AddHttpContextAccessor();
         services.AddScoped<IClientContext, HttpClientContext>();
+        services.AddScoped<ICurrentUser, HttpCurrentUser>();
         services.AddSingleton<ICommentNotifier, SignalRCommentNotifier>();
 
         return services;

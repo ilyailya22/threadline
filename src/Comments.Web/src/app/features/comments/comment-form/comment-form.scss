@@ -249,3 +249,12 @@
     animation: none;
   }
 }
+
+.form__identity {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}

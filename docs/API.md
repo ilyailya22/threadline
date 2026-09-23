@@ -169,6 +169,28 @@ query, so a query five levels deep costs five queries, not one per node.
 
 ---
 
+## Accounts
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/api/auth/me` | The signed-in account, or 204 |
+| `GET` | `/api/auth/providers` | Which ways in exist (`{ "google": true }`) |
+| `POST` | `/api/auth/register` | Address and password; signs in and sends the confirmation link |
+| `POST` | `/api/auth/login` | Address and password; 401 says only that one of them was wrong |
+| `POST` | `/api/auth/logout` | Drops the session cookie |
+| `POST` | `/api/auth/confirm` | `{ id, token }` from a confirmation link |
+| `POST` | `/api/auth/confirm/resend` | Another link for the signed-in account |
+| `GET` | `/api/auth/google` | Starts the Google round trip; comes back signed in |
+| `PUT` | `/api/accounts/me` | Nickname and home page |
+| `POST` | `/api/accounts/me/avatar` | `multipart/form-data`, one image |
+| `DELETE` | `/api/accounts/me/avatar` | Back to Google's picture, or initials |
+| `GET` | `/api/accounts/{id}/avatar` | The stored avatar; public, it is drawn on every comment |
+
+Posting a comment reads the author from the session cookie when there is one. In that case
+`userName`, `email` and the CAPTCHA fields are neither required nor read.
+
+---
+
 ## Real-time (SignalR)
 
 Hub: `/hubs/comments`. Every connection is in the top-level group automatically.

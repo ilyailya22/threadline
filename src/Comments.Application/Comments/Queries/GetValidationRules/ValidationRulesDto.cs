@@ -19,5 +19,8 @@ public sealed record ValidationRulesDto
 
     public required AttachmentRulesDto Attachments { get; init; }
 
+    /// <summary>What a password must be, so the sign-up form checks what the server checks.</summary>
+    public required FieldRulesDto Password { get; init; }
+
     public int PageSize { get; init; }
 }

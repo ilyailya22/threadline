@@ -67,6 +67,15 @@ built; after that it is seconds.
 - The interface is in **English**, with **Ukrainian** one click away in the header; the choice is
   remembered and switches instantly, without a reload.
 
+**Accounts**
+
+- Sign in with **Google**, or register with an e-mail address and a password. The nickname is taken
+  from the address and can be changed in settings.
+- An account posts as itself: no name, no address, no CAPTCHA. Guests keep the form the assignment
+  describes, CAPTCHA and all — and an address that belongs to an account is closed to them.
+- An avatar comes from Google, or from an upload, or from the initial on a colour derived from the
+  name.
+
 **Security** — the assignment calls out XSS and SQL injection specifically; see
 [docs/SECURITY.md](docs/SECURITY.md) for what is done about each.
 
