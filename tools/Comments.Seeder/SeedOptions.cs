@@ -3,10 +3,10 @@ namespace Threadline.Comments.Seeder;
 /// <summary>What to generate. Defaults are the numbers the assignment names.</summary>
 public sealed record SeedOptions
 {
-    /// <summary>"У нас 1 000 000 сообщений".</summary>
+    /// <summary>The assignment's target: one million comments.</summary>
     public int Comments { get; init; } = 1_000_000;
 
-    /// <summary>"100к пользователей в 24 час".</summary>
+    /// <summary>The assignment's target: a hundred thousand users a day.</summary>
     public int Users { get; init; } = 100_000;
 
     /// <summary>

@@ -88,9 +88,10 @@ public sealed class CommentsController(ISender sender) : ControllerBase
     /// Posts a comment or a reply, optionally with one image or text file.
     /// </summary>
     /// <remarks>
-    /// <c>multipart/form-data</c> so that the file travels with the form in one request. The file is
-    /// only validated and stored here; downscaling it to 320×240 happens on a worker, which is what
-    /// keeps this endpoint's latency independent of image size.
+    /// <c>multipart/form-data</c> so that the file travels with the form in one request. An image is
+    /// validated, turned the right way up, downscaled to at most 320×240 and stored before the
+    /// comment is — the assignment asks for the picture to be scaled down on upload, and that also
+    /// means what is stored is what is served.
     /// </remarks>
     [HttpPost]
     [EnableRateLimiting(RateLimitPolicies.Write)]

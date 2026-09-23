@@ -106,12 +106,12 @@ running instance without reading any code.
 
 ## Middle+ level
 
-> *"У нас 1 000 000 сообщений, 100к пользователей в 24 час. Заложи в архитектуру решение, напиши
-> нагрузочный тест."*
+> *"We have 1,000,000 comments and 100k users in 24 hours. Design the architecture for it and
+> write a load test."*
 
 | Requirement | Implementation | Where |
 |---|---|---|
-| Architecture designed for the volume | Materialised path, filtered covering indexes, outbox, Elasticsearch read model, two-level cache, async attachment processing, queue-depth autoscaling | [ARCHITECTURE.md](ARCHITECTURE.md) |
+| Architecture designed for the volume | Materialised path, filtered covering indexes, outbox, Elasticsearch read model, two-level cache, queue-depth autoscaling | [ARCHITECTURE.md](ARCHITECTURE.md) |
 | Generate the data | 1M comments / 100k users via `SqlBulkCopy` with a realistic thread shape | [`tools/Comments.Seeder`](../tools/Comments.Seeder) |
 | Load test | k6 (browse / write / spike) and NBomber, both asserting SLOs | [`loadtests/k6`](../loadtests/k6), [`tests/Comments.LoadTests`](../tests/Comments.LoadTests) |
 | Results | Scenarios, thresholds, measurements, and where the ceiling is | [LOAD-TESTING.md](LOAD-TESTING.md) |
@@ -165,8 +165,6 @@ text and the extension says image.
 ---
 
 ## The deployed instance
-
-<https://threadline-dev-web.delightfulpebble-27670933.canadacentral.azurecontainerapps.io>
 
 Region canadacentral, resource group `rg-threadline-dev`, deployed from the Bicep in
 [`deploy/bicep`](../deploy/bicep) — see [DEPLOYMENT.md](DEPLOYMENT.md) for the commands, the cost
