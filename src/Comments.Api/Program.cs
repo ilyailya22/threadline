@@ -26,6 +26,7 @@ builder.Services
     .AddInfrastructure(configuration)
     .AddInfrastructureInitializer(applyMigrations: true)
     .AddRequestContext()
+    .AddSharedDataProtection(configuration)
     .AddAccountAuthentication(configuration)
     .AddAuthorization()
     .AddLoadTestCaptchaBypass(configuration, environment);
@@ -68,11 +69,21 @@ var app = builder.Build();
 
 // Behind Azure Container Apps / nginx the real scheme and client IP arrive in headers. Without
 // this the rate limiter partitions every request by the ingress IP and HTTPS redirects loop.
-app.UseForwardedHeaders(new ForwardedHeadersOptions
+//
+// The known-proxy lists have to be emptied, not populated: by default only loopback is trusted, and
+// nginx is a different container on an address this app cannot know in advance, so the headers were
+// being dropped — the app read every forwarded request as plaintext HTTP from a single client. The
+// API has no public ingress, so the only thing that can reach it is the proxy in front of it.
+var forwardedHeaders = new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
     ForwardLimit = 2,
-});
+};
+
+forwardedHeaders.KnownIPNetworks.Clear();
+forwardedHeaders.KnownProxies.Clear();
+
+app.UseForwardedHeaders(forwardedHeaders);
 
 app.UseExceptionHandler();
 app.UseSerilogRequestLogging(options => options.GetLevel = (_, elapsedMs, exception) =>

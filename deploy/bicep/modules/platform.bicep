@@ -171,6 +171,18 @@ resource attachmentsContainer 'Microsoft.Storage/storageAccounts/blobServices/co
   }
 }
 
+// The Data Protection key ring, which encrypts the auth cookie. It lives in its own container
+// rather than beside the attachments, because the two have nothing in common but a storage
+// account: one is user content the site serves, the other is the key material that makes a
+// session readable by every API replica instead of just the one that issued it.
+resource dataProtectionContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
+  parent: blobService
+  name: 'data-protection'
+  properties: {
+    publicAccess: 'None'
+  }
+}
+
 resource fileService 'Microsoft.Storage/storageAccounts/fileServices@2023-05-01' = {
   parent: storage
   name: 'default'

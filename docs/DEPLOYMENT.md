@@ -5,12 +5,16 @@ Everything needed to put the system on Azure is in the repository: Bicep templat
 [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml). The template is validated with
 `az bicep build`.
 
-> **Status — deployed.** The stack runs on Azure, and `az deployment sub show … --query
-> properties.outputs.webUrl.value` prints the URL of the running instance.
+> **Status — deployed.**
+> https://threadline-dev-web.mangomushroom-fa88b7a3.canadacentral.azurecontainerapps.io
 >
 > Region **canadacentral**, resource group `rg-threadline-dev`, deployed by hand with the commands
 > below (Path A) on an Azure Free Trial (USD 200 credit for 30 days), which covers it comfortably —
-> see the cost table. Two notes from doing it for real:
+> see the cost table. Three notes from doing it for real:
+>
+> * The subscription allows **one Container Apps environment per region**
+>   (`MaxNumberOfRegionalEnvironmentsInSubExceeded`). There is no side-by-side cutover on it: the
+>   previous environment has to go before the next one can be created.
 >
 > * A new Free Trial subscription is not accepted in every region. `westeurope`, `northeurope` and
 >   `eastus` all answered `RequestDisallowedByAzure — region is currently not accepting new

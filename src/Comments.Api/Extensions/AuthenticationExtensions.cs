@@ -32,6 +32,10 @@ public static class AuthenticationExtensions
                 options.Cookie.Name = CookieName;
                 options.Cookie.HttpOnly = true;
                 options.Cookie.SameSite = SameSiteMode.Lax;
+                // SameAsRequest, not Always, so the local HTTP stack and the integration tests can
+                // hold a session. This is only safe because the API trusts X-Forwarded-Proto from
+                // the proxy in front of it (see Program.cs): without that the deployed site reads
+                // every request as plaintext and quietly issues the session cookie without Secure.
                 options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
                 options.ExpireTimeSpan = TimeSpan.FromDays(30);
                 options.SlidingExpiration = true;

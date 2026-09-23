@@ -56,9 +56,11 @@ export class I18n {
 }
 
 /**
- * The remembered choice, then the browser's own preference, then English. A Ukrainian-speaking
- * visitor should not have to find the switch, and everyone else gets the default the assignment's
- * reviewers read.
+ * The remembered choice, then English.
+ *
+ * Deliberately not the browser's preference: English is the language this is presented in, and a
+ * visitor whose browser asks for Ukrainian should still land on the same page everyone else sees.
+ * Ukrainian is one click away in the header, and that click is what gets remembered.
  */
 function read(): Locale {
   try {
@@ -71,11 +73,7 @@ function read(): Locale {
     // Ignored: see use().
   }
 
-  const preferred = typeof navigator === 'undefined' ? [] : navigator.languages;
-
-  return preferred.some((language) => language.toLowerCase().startsWith('uk'))
-    ? 'uk'
-    : DEFAULT_LOCALE;
+  return DEFAULT_LOCALE;
 }
 
 function isLocale(value: string | null): value is Locale {
