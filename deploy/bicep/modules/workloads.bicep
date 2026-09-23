@@ -249,6 +249,32 @@ var sharedEnvironment = [
   { name: 'KeyVault__Name', value: keyVaultName }
 ]
 
+// Accounts sign-in and confirmation e-mail are both optional, and "optional" has to mean absent
+// rather than empty: Container Apps rejects a secret declared without a value, and an env var
+// pointing at a secret that was not declared is just as invalid. So when a credential is not
+// supplied, neither the secret nor the setting that reads it is emitted at all.
+var googleConfigured = !empty(googleClientId) && !empty(googleClientSecret)
+var smtpConfigured = !empty(smtpHost)
+
+var optionalSecrets = concat(
+  googleConfigured ? [ { name: 'google-client-secret', value: googleClientSecret } ] : [],
+  smtpConfigured && !empty(smtpPassword) ? [ { name: 'smtp-password', value: smtpPassword } ] : [])
+
+var googleEnvironment = googleConfigured ? [
+  { name: 'Authentication__Google__ClientId', value: googleClientId }
+  { name: 'Authentication__Google__ClientSecret', secretRef: 'google-client-secret' }
+] : []
+
+var emailEnvironment = concat(
+  smtpConfigured ? [
+    { name: 'Email__Host', value: smtpHost }
+    { name: 'Email__Port', value: string(smtpPort) }
+    { name: 'Email__UseStartTls', value: 'true' }
+    { name: 'Email__Username', value: smtpUsername }
+  ] : [],
+  smtpConfigured && !empty(smtpPassword) ? [ { name: 'Email__Password', secretRef: 'smtp-password' } ] : [],
+  empty(emailFromAddress) ? [] : [ { name: 'Email__FromAddress', value: emailFromAddress } ])
+
 // -------------------------------------------------------------------------------------
 //  API
 // -------------------------------------------------------------------------------------
@@ -272,18 +298,16 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
         }
       }
       registries: registryConfiguration
-      secrets: [
+      secrets: concat([
         { name: 'sql-connection-string', value: sqlConnectionString }
         { name: 'rabbitmq-connection-string', value: rabbitConnectionString }
         { name: 'appinsights-connection-string', value: applicationInsightsConnectionString }
-        { name: 'google-client-secret', value: googleClientSecret }
-        { name: 'smtp-password', value: smtpPassword }
         {
           name: 'ip-hash-pepper'
           keyVaultUrl: 'https://${keyVaultName}${az.environment().suffixes.keyvaultDns}/secrets/ip-hash-pepper'
           identity: identityId
         }
-      ]
+      ], optionalSecrets)
     }
     template: {
       containers: [
@@ -296,21 +320,14 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'ApplicationInsights__ConnectionString', secretRef: 'appinsights-connection-string' }
             { name: 'Privacy__IpHashPepper', secretRef: 'ip-hash-pepper' }
 
-            // Accounts. Both are optional: without Google credentials the button is not shown,
-            // and without an SMTP host the confirmation message goes to the log rather than
-            // failing a registration that otherwise worked.
-            { name: 'Authentication__Google__ClientId', value: googleClientId }
-            { name: 'Authentication__Google__ClientSecret', secretRef: 'google-client-secret' }
-            { name: 'Email__Host', value: smtpHost }
-            { name: 'Email__Port', value: string(smtpPort) }
-            { name: 'Email__UseStartTls', value: 'true' }
-            { name: 'Email__Username', value: smtpUsername }
-            { name: 'Email__Password', secretRef: 'smtp-password' }
-            { name: 'Email__FromAddress', value: emailFromAddress }
             // Built from the environment's domain rather than from the web app, which would be a
-            // cycle: nginx already names the API, and the API now names the site.
+            // cycle: nginx already names the API, and the API now names the site. Always set, as
+            // the confirmation link is needed even when the message only reaches the log.
             { name: 'Email__PublicUrl', value: 'https://${applicationName}-${environmentName}-web.${containerAppsEnvironmentDomain}' }
-          ])
+          // Accounts. Both are optional: without Google credentials the button is not shown, and
+          // without an SMTP host the confirmation message goes to the log rather than failing a
+          // registration that otherwise worked.
+          ], googleEnvironment, emailEnvironment)
           resources: {
             cpu: json('0.5')
             memory: '1Gi'
