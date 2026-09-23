@@ -83,10 +83,15 @@ public sealed class AccountsApiTests(CommentsApiFactory factory) : IAsyncLifetim
         wrongPassword.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
         noSuchAccount.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
 
-        var first = await wrongPassword.Content.ReadAsStringAsync();
-        var second = await noSuchAccount.Content.ReadAsStringAsync();
+        // Same status, same wording. Compared field by field rather than as whole bodies, because
+        // every problem response carries its own traceId and those are meant to differ.
+        var first = await Problem(wrongPassword);
+        var second = await Problem(noSuchAccount);
 
         first.ShouldBe(second);
+
+        // And the wording names both halves, so it cannot be read as an answer about either one.
+        first.Title.ShouldBe("E-mail or password is incorrect.");
     }
 
     [Fact]
@@ -210,6 +215,19 @@ public sealed class AccountsApiTests(CommentsApiFactory factory) : IAsyncLifetim
         using var removed = await _client.DeleteAsync("/api/accounts/me/avatar");
         var withoutAvatar = await removed.Content.ReadFromJsonAsync<AccountDto>(Json);
         withoutAvatar!.AvatarUrl.ShouldBeNull();
+    }
+
+    /// <summary>The parts of a problem response that are the same for everyone who sees it.</summary>
+    private sealed record ProblemShape(int? Status, string? Title, string? Detail);
+
+    private static async Task<ProblemShape> Problem(HttpResponseMessage response)
+    {
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(Json);
+
+        return new ProblemShape(
+            problem.TryGetProperty("status", out var status) ? status.GetInt32() : null,
+            problem.TryGetProperty("title", out var title) ? title.GetString() : null,
+            problem.TryGetProperty("detail", out var detail) ? detail.GetString() : null);
     }
 
     private async Task<AccountDto> RegisterAsync(string email)

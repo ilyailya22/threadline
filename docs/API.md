@@ -85,13 +85,13 @@ Every node appears after its parent, so pages can be appended and the nesting re
 
 | Field | Required | Rule |
 |---|---|---|
-| `userName` | yes | `^[A-Za-z0-9]{2,64}$` |
-| `email` | yes | e-mail, ≤ 254 |
-| `homePage` | no | absolute `http`/`https` URL |
+| `userName` | guests only | `^[A-Za-z0-9]{2,64}$` |
+| `email` | guests only | e-mail, ≤ 254 |
+| `homePage` | no | absolute `http`/`https` URL; guests only |
 | `text` | yes | ≤ 20,000; only `<a href title>`, `<code>`, `<i>`, `<strong>`; tags must balance |
 | `parentId` | no | the comment being replied to |
-| `captchaId` | yes | from `X-Captcha-Id` |
-| `captchaAnswer` | yes | letters and digits |
+| `captchaId` | guests only | from `X-Captcha-Id` |
+| `captchaAnswer` | guests only | letters and digits |
 | `file` | no | JPG/GIF/PNG ≤ 10 MB (stored at ≤ 320×240) or TXT ≤ 100 KB |
 
 `201 Created` with `{ id, rootId, parentId, createdAt, textHtml }`. `400` validation, `404` unknown
