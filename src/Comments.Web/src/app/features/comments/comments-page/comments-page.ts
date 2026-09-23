@@ -11,8 +11,9 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, type ParamMap } from '@angular/router';
 
 import { CommentsApi } from '../../../core/api/comments-api';
+import { I18n } from '../../../core/i18n/i18n';
+import type { MessageKey } from '../../../core/i18n/messages';
 import type {
-  Attachment,
   CommentListItem,
   CommentNode,
   CommentPosted,
@@ -30,7 +31,9 @@ import { OpenThread } from './open-thread';
 
 interface SortColumn {
   readonly field: CommentSortField;
-  readonly label: string;
+
+  /** A message key, not a caption: the column heading follows the chosen language. */
+  readonly label: MessageKey;
 }
 
 const SORT_FIELDS: readonly CommentSortField[] = ['userName', 'email', 'createdAt'];
@@ -69,12 +72,14 @@ export class CommentsPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
 
+  protected readonly t = inject(I18n).t;
+
   protected readonly thread = inject(OpenThread);
 
   protected readonly columns: readonly SortColumn[] = [
-    { field: 'userName', label: 'User Name' },
-    { field: 'email', label: 'E-mail' },
-    { field: 'createdAt', label: 'Дата добавления' },
+    { field: 'userName', label: 'column.userName' },
+    { field: 'email', label: 'column.email' },
+    { field: 'createdAt', label: 'column.date' },
   ];
 
   protected readonly page = signal(DEFAULT_STATE.page);
@@ -108,16 +113,6 @@ export class CommentsPage implements OnInit {
    * it was deleted".
    */
   private readonly unconfirmedOwn = new Map<string, CommentPosted>();
-
-  /**
-   * Attachments the worker has reported as processed, by id.
-   *
-   * The "ready" push arrives once. A page loaded afterwards can still predate it — the index or the
-   * list cache may not have caught up — and an optimistic row was built before it. Applying this
-   * over every page is what stops a finished image from reverting to "обрабатывается", or never
-   * appearing at all.
-   */
-  private readonly readyAttachments = new Map<string, Attachment>();
 
   protected readonly liveConnected = this.realtime.connected;
 
@@ -161,15 +156,6 @@ export class CommentsPage implements OnInit {
     this.realtime.commentCreated
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((comment) => this.onLiveComment(comment));
-
-    this.realtime.attachmentReady.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((event) => {
-      // Patched in place, table and open thread alike. Re-reading the table instead would ask a
-      // search index and a cache that may not have caught up yet — and would do it in every
-      // connected browser, for every processed file.
-      this.readyAttachments.set(event.attachment.id, event.attachment);
-      this.result.update((current) => current && this.withReadyAttachments(current));
-      this.thread.applyAttachmentReady(event);
-    });
   }
 
   protected sort(field: CommentSortField): void {
@@ -266,7 +252,7 @@ export class CommentsPage implements OnInit {
       textPreview: '',
       createdAt: posted.result.createdAt,
       replyCount: 0,
-      attachments: posted.result.attachments.map((a) => this.readyAttachments.get(a.id) ?? a),
+      attachments: posted.result.attachments,
     };
 
     this.result.set({
@@ -274,20 +260,6 @@ export class CommentsPage implements OnInit {
       items: [item, ...current.items].slice(0, current.pageSize),
       totalCount: current.totalCount + 1,
     });
-  }
-
-  private withReadyAttachments(page: PagedResult<CommentListItem>): PagedResult<CommentListItem> {
-    if (this.readyAttachments.size === 0) {
-      return page;
-    }
-
-    return {
-      ...page,
-      items: page.items.map((item) => ({
-        ...item,
-        attachments: item.attachments.map((a) => this.readyAttachments.get(a.id) ?? a),
-      })),
-    };
   }
 
   private navigate(changes: Partial<ListState>): void {
@@ -314,12 +286,12 @@ export class CommentsPage implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (result) => {
-          this.result.set(this.withReadyAttachments(result));
+          this.result.set(result);
           this.reconcileOwnComments();
           this.loading.set(false);
         },
         error: () => {
-          this.error.set('Не удалось загрузить комментарии.');
+          this.error.set(this.t('list.error'));
           this.loading.set(false);
         },
       });

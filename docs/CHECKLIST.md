@@ -37,7 +37,7 @@ running instance without reading any code.
 | # | Requirement | Where | How to verify |
 |---|---|---|---|
 | 12 | An image **or** a text file can be attached | [`AttachmentIntakeService.cs`](../src/Comments.Application/Attachments/AttachmentIntakeService.cs) | Attach a `.png` and post; attach a `.txt` and post. Both appear under the comment. |
-| 13 | Images larger than **320×240** are scaled down **proportionally**; JPG, GIF, PNG only | [`SkiaImageProcessor.cs`](../src/Comments.Infrastructure/Media/SkiaImageProcessor.cs) | Attach a 1920×1080 photo. The form warns it will be reduced; the stored image is 320×180 — scaled, not cropped or squashed. Attach a `.bmp` → rejected. |
+| 13 | Images larger than **320×240** are scaled down **proportionally**, on upload; JPG, GIF, PNG only | [`SkiaImageProcessor.cs`](../src/Comments.Infrastructure/Media/SkiaImageProcessor.cs) | Attach a 1920×1080 photo. The form warns it will be reduced; the response to the post already carries a 320×180 image — scaled, not cropped or squashed, and nothing waits for a worker. A photo carrying an EXIF orientation comes back the right way up. Attach a `.bmp` → rejected. |
 | 14 | Text files at most **100 KB**, `.txt` only | [`Attachment.cs`](../src/Comments.Domain/Comments/Attachment.cs) | Attach a 200 KB `.txt` → rejected with the limit named. |
 | 15 | File viewing has visual effects | [`lightbox.scss`](../src/Comments.Web/src/app/features/lightbox/lightbox.scss) | Click a thumbnail: the overlay fades in and the panel zooms. Escape and a click outside both close it. |
 

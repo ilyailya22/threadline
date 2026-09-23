@@ -1,24 +1,22 @@
 <section class="page">
   <header class="page__header">
     <div>
-      <h1 class="page__title">Комментарии</h1>
-      <p class="page__subtitle">
-        Заглавные комментарии, по 25 на страницу. Сортировка по умолчанию — новые сверху.
-      </p>
+      <h1 class="page__title">{{ t('list.title') }}</h1>
+      <p class="page__subtitle">{{ t('list.subtitle') }}</p>
     </div>
 
     <div class="page__tools">
       <span
         class="live"
         [class.live--on]="liveConnected()"
-        [title]="liveConnected() ? 'Обновления в реальном времени' : 'Нет соединения'"
+        [title]="liveConnected() ? t('list.live.on') : t('list.live.off')"
       >
         <span class="live__dot" aria-hidden="true"></span>
-        {{ liveConnected() ? 'Live' : 'Offline' }}
+        {{ liveConnected() ? t('list.live.label') : t('list.live.off') }}
       </span>
 
       <button class="button button--primary" type="button" (click)="formOpen.set(!formOpen())">
-        {{ formOpen() ? 'Свернуть' : 'Новый комментарий' }}
+        {{ formOpen() ? t('list.collapse') : t('list.new') }}
       </button>
     </div>
   </header>
@@ -31,7 +29,7 @@
 
   @if (pendingLive().length > 0) {
     <button type="button" class="live-banner" (click)="showPendingLive()">
-      Новых комментариев: {{ pendingLive().length }} — показать
+      {{ t('list.pending', { count: pendingLive().length }) }}
     </button>
   }
 
@@ -42,7 +40,9 @@
   <div class="table-wrapper" [class.table-wrapper--loading]="loading()">
     <table class="table">
       <caption class="visually-hidden">
-        Заглавные комментарии с возможностью сортировки по имени, e-mail и дате
+        {{
+          t('list.caption')
+        }}
       </caption>
 
       <thead>
@@ -58,8 +58,13 @@
                   : 'none'
               "
             >
-              <button type="button" class="table__sort" (click)="sort(column.field)">
-                {{ column.label }}
+              <button
+                type="button"
+                class="table__sort"
+                [attr.aria-label]="t('column.sortBy', { column: t(column.label) })"
+                (click)="sort(column.field)"
+              >
+                {{ t(column.label) }}
                 <span class="table__arrow" aria-hidden="true">
                   @if (sortBy() === column.field) {
                     {{ direction() === 'ascending' ? '▲' : '▼' }}
@@ -70,8 +75,8 @@
               </button>
             </th>
           }
-          <th scope="col">Комментарий</th>
-          <th scope="col" class="table__numeric">Ответов</th>
+          <th scope="col">{{ t('column.comment') }}</th>
+          <th scope="col" class="table__numeric">{{ t('column.replies') }}</th>
         </tr>
       </thead>
 
@@ -85,7 +90,7 @@
             (keydown.enter)="thread.toggle(item.id)"
             (keydown.space)="thread.toggle(item.id)"
           >
-            <td data-label="User Name">
+            <td [attr.data-label]="t('column.userName')">
               <span class="table__user">
                 <span class="table__avatar" aria-hidden="true">
                   {{ item.author.userName.charAt(0).toUpperCase() }}
@@ -93,11 +98,13 @@
                 {{ item.author.userName }}
               </span>
             </td>
-            <td data-label="E-mail" class="table__email">{{ item.author.email }}</td>
-            <td data-label="Дата">
+            <td [attr.data-label]="t('column.email')" class="table__email">
+              {{ item.author.email }}
+            </td>
+            <td [attr.data-label]="t('column.date')">
               <time [attr.datetime]="item.createdAt">{{ item.createdAt | relativeTime }}</time>
             </td>
-            <td data-label="Комментарий">
+            <td [attr.data-label]="t('column.comment')">
               <div
                 class="comment-text table__preview"
                 [innerHTML]="item.textHtml | sanitizedHtml"
@@ -108,7 +115,9 @@
                 <app-attachment-view [attachment]="attachment" (click)="$event.stopPropagation()" />
               }
             </td>
-            <td data-label="Ответов" class="table__numeric">{{ item.replyCount }}</td>
+            <td [attr.data-label]="t('column.replies')" class="table__numeric">
+              {{ item.replyCount }}
+            </td>
           </tr>
 
           @if (thread.rootId() === item.id) {
@@ -126,16 +135,16 @@
                       (click)="thread.loadMore()"
                     >
                       @if (thread.loading()) {
-                        Загрузка…
+                        {{ t('list.loading') }}
                       } @else {
-                        Показать ещё ({{ thread.remaining() }})
+                        {{ t('thread.more', { count: thread.remaining() }) }}
                       }
                     </button>
                   }
                 } @else if (thread.loading()) {
-                  <p class="table__loading">Загрузка ветки…</p>
+                  <p class="table__loading">{{ t('thread.loading') }}</p>
                 } @else if (thread.failed()) {
-                  <p class="table__loading">Не удалось загрузить ветку.</p>
+                  <p class="table__loading">{{ t('thread.error') }}</p>
                 }
               </td>
             </tr>
@@ -144,9 +153,9 @@
           <tr>
             <td [attr.colspan]="5" class="table__empty">
               @if (loading()) {
-                Загрузка…
+                {{ t('list.loading') }}
               } @else {
-                Пока нет ни одного комментария. Будьте первым.
+                {{ t('list.empty') }}
               }
             </td>
           </tr>
@@ -157,14 +166,14 @@
 
   @if (result(); as paged) {
     @if (paged.totalPages > 1) {
-      <nav class="pager" aria-label="Страницы комментариев">
+      <nav class="pager" [attr.aria-label]="t('paging.label')">
         <button
           type="button"
           class="pager__button"
           [disabled]="!paged.hasPrevious"
           (click)="goToPage(paged.page - 1)"
         >
-          ← Назад
+          {{ t('paging.previous') }}
         </button>
 
         @for (number of pageNumbers(); track number; let index = $index) {
@@ -176,6 +185,7 @@
             type="button"
             class="pager__button"
             [class.pager__button--active]="number === paged.page"
+            [attr.aria-label]="t('paging.goTo', { page: number })"
             [attr.aria-current]="number === paged.page ? 'page' : null"
             (click)="goToPage(number)"
           >
@@ -189,15 +199,15 @@
           [disabled]="!paged.hasNext"
           (click)="goToPage(paged.page + 1)"
         >
-          Вперёд →
+          {{ t('paging.next') }}
         </button>
       </nav>
 
       <p class="pager__summary">
-        Всего заглавных комментариев: {{ paged.totalCount }} · страница {{ paged.page }} из
-        {{ paged.totalPages }}
+        {{ t('list.total', { count: paged.totalCount }) }} ·
+        {{ t('list.page', { page: paged.page, pages: paged.totalPages }) }}
         @if (paged.totalCount > paged.totalPages * paged.pageSize) {
-          · листать можно первые {{ paged.totalPages }} страниц — дальше используйте сортировку
+          · {{ t('list.pageCap', { pages: paged.totalPages }) }}
         }
       </p>
     }

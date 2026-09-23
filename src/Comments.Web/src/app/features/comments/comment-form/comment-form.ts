@@ -16,6 +16,8 @@ import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators, type AbstractControl } from '@angular/forms';
 
 import { CommentsApi } from '../../../core/api/comments-api';
+import { I18n } from '../../../core/i18n/i18n';
+import type { MessageKey } from '../../../core/i18n/messages';
 import type {
   CaptchaChallenge,
   CommentPosted,
@@ -32,7 +34,7 @@ interface TagButton {
   readonly label: string;
   readonly open: string;
   readonly close: string;
-  readonly title: string;
+  readonly title: MessageKey;
 }
 
 /** Client-side result of inspecting a chosen file. */
@@ -53,6 +55,8 @@ export class CommentForm {
   private readonly api = inject(CommentsApi);
   private readonly fb = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
+
+  protected readonly t = inject(I18n).t;
 
   private readonly textAreaRef = viewChild.required<ElementRef<HTMLTextAreaElement>>('textArea');
 
@@ -85,11 +89,26 @@ export class CommentForm {
   protected readonly fileError = signal<string | null>(null);
 
   protected readonly tagButtons: readonly TagButton[] = [
-    { label: 'i', open: '<i>', close: '</i>', title: 'Курсив' },
-    { label: 'strong', open: '<strong>', close: '</strong>', title: 'Полужирный' },
-    { label: 'code', open: '<code>', close: '</code>', title: 'Код' },
-    { label: 'a', open: '<a href="https://" title="">', close: '</a>', title: 'Ссылка' },
+    { label: 'i', open: '<i>', close: '</i>', title: 'form.tag.italic' },
+    { label: 'strong', open: '<strong>', close: '</strong>', title: 'form.tag.bold' },
+    { label: 'code', open: '<code>', close: '</code>', title: 'form.tag.code' },
+    { label: 'a', open: '<a href="https://" title="">', close: '</a>', title: 'form.tag.link' },
   ];
+
+  /** The allowed tags and the upload limits, both as the server publishes them. */
+  protected readonly allowedTags = computed(() => this.rules()?.allowedTags.join(', ') ?? '');
+
+  protected readonly fileHint = computed(() => {
+    const attachments = this.rules()?.attachments;
+
+    return attachments
+      ? this.t('form.file.hint', {
+          maxWidth: attachments.maxImageWidth,
+          maxHeight: attachments.maxImageHeight,
+          maxTextKb: Math.round(attachments.maxTextFileBytes / 1024),
+        })
+      : '';
+  });
 
   protected readonly form = this.fb.nonNullable.group({
     // Only the structural checks until the server's rules arrive — see applyRules.
@@ -159,7 +178,7 @@ export class CommentForm {
           this.captcha.set(challenge);
           this.form.controls.captchaAnswer.setValue('');
         },
-        error: () => this.serverError.set('Не удалось загрузить CAPTCHA. Попробуйте обновить её.'),
+        error: () => this.serverError.set(this.t('error.captcha')),
       });
   }
 
@@ -230,7 +249,7 @@ export class CommentForm {
     const check = checkAttachment(file, rules);
 
     if (!check.ok) {
-      this.fileError.set(check.error);
+      this.fileError.set(this.t(check.error, check.params));
       input.value = '';
       return;
     }
@@ -243,10 +262,12 @@ export class CommentForm {
     const previewUrl = URL.createObjectURL(file);
     const size = await readImageSize(previewUrl);
 
+    const note = size ? describeImageSize(size, rules) : null;
+
     this.selected.set({
       file,
       previewUrl,
-      note: size ? describeImageSize(size, rules) : undefined,
+      note: note ? this.t(note.key, note.params) : undefined,
     });
   }
 
@@ -326,30 +347,30 @@ export class CommentForm {
     }
 
     if (errors['required']) {
-      return 'Обязательное поле.';
+      return this.t('validation.required');
     }
 
     if (errors['minlength']) {
-      return 'Слишком короткое значение.';
+      return this.t('validation.tooShort');
     }
 
     if (errors['maxlength']) {
-      return 'Слишком длинное значение.';
+      return this.t('validation.tooLong');
     }
 
     if (errors['url']) {
-      return 'Укажите абсолютный http/https адрес.';
+      return this.t('validation.url');
     }
 
     if (errors['unbalancedTag']) {
-      return `Тег <${errors['unbalancedTag']}> не закрыт или закрыт неправильно.`;
+      return this.t('validation.unbalancedTag', { tag: errors['unbalancedTag'] as string });
     }
 
     if (errors['pattern']) {
-      return name === 'email' ? 'Некорректный e-mail.' : 'Только латинские буквы и цифры.';
+      return name === 'email' ? this.t('validation.email') : this.t('validation.latin');
     }
 
-    return 'Некорректное значение.';
+    return this.t('validation.invalid');
   }
 
   /** Maps an RFC 9457 validation problem onto the form's controls. */
@@ -357,12 +378,12 @@ export class CommentForm {
     const problem = error.error as ProblemDetails | undefined;
 
     if (error.status === 429) {
-      this.serverError.set('Слишком много запросов. Подождите немного и попробуйте снова.');
+      this.serverError.set(this.t('error.tooManyRequests'));
       return;
     }
 
     if (!problem?.errors) {
-      this.serverError.set(problem?.title ?? 'Не удалось отправить комментарий.');
+      this.serverError.set(problem?.title ?? this.t('error.submit'));
       return;
     }
 

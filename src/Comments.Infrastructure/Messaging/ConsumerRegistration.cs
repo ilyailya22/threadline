@@ -13,18 +13,17 @@ namespace Threadline.Comments.Infrastructure.Messaging;
 /// </remarks>
 public static class ConsumerRegistration
 {
-    /// <summary>Pushes new comments and processed attachments to connected browsers. Web tier.</summary>
+    /// <summary>Pushes new comments to connected browsers. Web tier.</summary>
     public static IBusRegistrationConfigurator AddBroadcastConsumers(this IBusRegistrationConfigurator bus)
     {
         ArgumentNullException.ThrowIfNull(bus);
 
         bus.AddConsumer<CommentBroadcastConsumer>();
-        bus.AddConsumer<AttachmentReadyBroadcastConsumer>();
 
         return bus;
     }
 
-    /// <summary>Keeps the search index current and processes uploads. Worker tier.</summary>
+    /// <summary>Keeps the search index current. Worker tier.</summary>
     public static IBusRegistrationConfigurator AddBackgroundConsumers(this IBusRegistrationConfigurator bus)
     {
         ArgumentNullException.ThrowIfNull(bus);
@@ -36,9 +35,6 @@ public static class ConsumerRegistration
             .SetMessageLimit(CommentIndexerConsumer.BatchSize)
             .SetTimeLimit(TimeSpan.FromMilliseconds(100))
             .SetConcurrencyLimit(2)));
-
-        bus.AddConsumer<AttachmentProcessorConsumer>();
-        bus.AddConsumer<AttachmentIndexRefreshConsumer>();
 
         return bus;
     }

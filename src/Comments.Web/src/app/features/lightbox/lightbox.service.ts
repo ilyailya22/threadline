@@ -1,4 +1,6 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
+
+import { I18n } from '../../core/i18n/i18n';
 
 export interface LightboxContent {
   readonly kind: 'image' | 'text';
@@ -17,6 +19,8 @@ export interface LightboxContent {
  */
 @Injectable({ providedIn: 'root' })
 export class LightboxService {
+  private readonly i18n = inject(I18n);
+
   private readonly _content = signal<LightboxContent | null>(null);
   private readonly _loading = signal(false);
 
@@ -43,7 +47,7 @@ export class LightboxService {
       this._content.set({
         kind: 'text',
         title,
-        text: 'Не удалось загрузить файл.',
+        text: this.i18n.t('lightbox.loadFailed'),
         downloadUrl: url,
       });
     } finally {

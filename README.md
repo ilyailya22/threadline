@@ -49,8 +49,9 @@ built; after that it is seconds.
   process the real submission.
 - A toolbar for the allowed tags: `[i]`, `[strong]`, `[code]`, `[a]`. It wraps the current
   selection rather than dumping tags at the caret.
-- An image or a text file can be attached. Images larger than 320×240 are scaled down
-  proportionally; text files are limited to 100 KB.
+- An image or a text file can be attached. An image larger than 320×240 is scaled down
+  proportionally **while the comment is being posted**, so what is stored is what is served; text
+  files are limited to 100 KB.
 
 **Reading**
 
@@ -61,8 +62,10 @@ built; after that it is seconds.
 - Click a row to expand its thread: every reply, nested, to any depth.
 - Attachments open in a lightbox with a fade-and-zoom transition — images inline, text files
   fetched and shown as text.
-- New comments arrive over a WebSocket. They are offered behind a «Новых комментариев: 3 —
-  показать» banner rather than being spliced into the table under the reader's cursor.
+- New comments arrive over a WebSocket. They are offered behind a "New comments: 3 — show" banner
+  rather than being spliced into the table under the reader's cursor.
+- The interface is in **English**, with **Ukrainian** one click away in the header; the choice is
+  remembered and switches instantly, without a reload.
 
 **Security** — the assignment calls out XSS and SQL injection specifically; see
 [docs/SECURITY.md](docs/SECURITY.md) for what is done about each.

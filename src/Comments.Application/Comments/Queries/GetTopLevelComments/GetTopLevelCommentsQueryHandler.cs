@@ -22,14 +22,18 @@ namespace Threadline.Comments.Application.Comments.Queries.GetTopLevelComments;
 /// or user name costs the same as sorting by date, and no join is involved.
 /// </para>
 /// <para>
-/// <b>SQL fallback.</b> If the search cluster is unavailable the site degrades instead of failing:
-/// the same page is answered from SQL Server, slower but correct. A comments board that shows a 500
-/// because a search node restarted would be a worse system than one that is briefly slower.
+/// <b>SQL fallback.</b> Two different failures lead here, and only one of them throws. If the
+/// search cluster is unavailable the query fails and the same page is answered from SQL Server —
+/// slower, but correct. If instead the cluster is healthy while nothing is feeding it, every query
+/// succeeds and quietly omits whatever was posted since the projection stalled; that is why the
+/// freshness of the index is checked rather than inferred from the absence of exceptions. A
+/// comments board that hides comments it has already stored is a worse system than a slow one.
 /// </para>
 /// </remarks>
 public sealed partial class GetTopLevelCommentsQueryHandler(
     ICommentSearchIndex searchIndex,
     ICommentReadRepository readRepository,
+    ISearchIndexFreshness freshness,
     ICommentCache cache,
     ILogger<GetTopLevelCommentsQueryHandler> logger)
     : IRequestHandler<GetTopLevelCommentsQuery, PagedResult<CommentListItemDto>>
@@ -70,6 +74,14 @@ public sealed partial class GetTopLevelCommentsQueryHandler(
         string? searchText,
         CancellationToken cancellationToken)
     {
+        // A stalled projection is the failure that does not throw: the index answers, just without
+        // what it has not been given. Free-text search has nowhere else to go, so it still asks the
+        // index — slightly stale results beat none.
+        if (searchText is null && !await freshness.IsCurrentAsync(cancellationToken))
+        {
+            return await readRepository.GetTopLevelAsync(page, cancellationToken);
+        }
+
         try
         {
             return await searchIndex.QueryTopLevelAsync(page, searchText, cancellationToken);

@@ -57,7 +57,7 @@ export function httpUrlValidator(control: AbstractControl): ValidationErrors | n
  * Checks that the allowed tags are balanced, mirroring the server's rule.
  *
  * The server is the authority and refuses unbalanced markup outright; doing the same check here
- * means the user sees "тег &lt;strong&gt; не закрыт" as they type rather than after a round trip.
+ * means the user sees "tag <strong> is not closed" as they type rather than after a round trip.
  * Unknown tags are ignored on purpose — the server escapes them into text, it does not reject them.
  */
 export function balancedTagsValidator(allowedTags: readonly string[]): ValidatorFn {

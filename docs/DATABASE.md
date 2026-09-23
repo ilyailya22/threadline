@@ -78,7 +78,6 @@ half the storage and faster comparisons on a column that is indexed and sorted.
 | `IX_Comments_ParentId_CreatedAt` | `ParentId, CreatedAt` | — | Direct replies (GraphQL DataLoader) |
 | `IX_Comments_AuthorId` | `AuthorId` | — | FK lookups |
 | `UX_Users_UserName_Email` | `UserName, Email` | — | Identity lookup; prevents duplicate authors under concurrency |
-| `IX_Attachments_Pending` | `Status` | `Status = 0` | Worker backlog — near-empty in steady state |
 | `IX_OutboxMessages_Pending` | `NextAttemptAt, OccurredAt` | `ProcessedAt IS NULL` | Publisher claim query — near-empty in steady state |
 
 The filtered indexes are the point. With a million comments and ~4% top-level, the top-level index

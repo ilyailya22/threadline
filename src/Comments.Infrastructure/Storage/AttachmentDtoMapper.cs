@@ -23,7 +23,6 @@ public sealed class AttachmentDtoMapper : IAttachmentDtoMapper
         return new AttachmentDto(
             attachment.Id,
             attachment.Kind,
-            attachment.Status,
             attachment.ContentType,
             attachment.OriginalFileName,
             attachment.SizeBytes,

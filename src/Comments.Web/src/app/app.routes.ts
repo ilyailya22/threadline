@@ -7,7 +7,8 @@ export const routes: Routes = [
     // second feature later does not require restructuring the bundle.
     loadComponent: () =>
       import('./features/comments/comments-page/comments-page').then((m) => m.CommentsPage),
-    title: 'Комментарии — Threadline',
+
+    // The document title follows the chosen language, so the shell sets it rather than the route.
   },
   { path: '**', redirectTo: '' },
 ];

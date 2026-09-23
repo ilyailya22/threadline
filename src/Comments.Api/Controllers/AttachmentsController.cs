@@ -36,10 +36,9 @@ public sealed class AttachmentsController(ISender sender) : ControllerBase
     {
         var file = await sender.Send(query, cancellationToken);
 
-        // Once processed, the file behind this URL never changes, so browsers and any CDN in front
-        // of this can keep it for a year. Before that the URL still serves the raw upload, which
-        // must not be cached in place of the downscaled image that replaces it.
-        Response.Headers.CacheControl = file.IsFinal ? "public, max-age=31536000, immutable" : "no-store";
+        // The file behind this URL never changes — it is processed on upload and stored under a
+        // path built from its id — so browsers and any CDN in front of this can keep it for a year.
+        Response.Headers.CacheControl = "public, max-age=31536000, immutable";
 
         // A download name makes ASP.NET send Content-Disposition: attachment.
         return file.IsDownload

@@ -8,7 +8,7 @@ import {
 import { Subject } from 'rxjs';
 
 import { API_BASE_URL } from '../config/api-base-url';
-import type { AttachmentReadyEvent, CommentNode } from '../api/models';
+import type { CommentNode } from '../api/models';
 
 /**
  * The SignalR connection.
@@ -26,13 +26,11 @@ export class CommentsRealtime {
   private readonly watchedThreads = new Set<string>();
 
   private readonly commentCreatedSubject = new Subject<CommentNode>();
-  private readonly attachmentReadySubject = new Subject<AttachmentReadyEvent>();
 
   /** Exposed as a signal so templates can show a "live" indicator without a subscription. */
   readonly connected = signal(false);
 
   readonly commentCreated = this.commentCreatedSubject.asObservable();
-  readonly attachmentReady = this.attachmentReadySubject.asObservable();
 
   constructor() {
     this.destroyRef.onDestroy(() => void this.connection?.stop());
@@ -55,10 +53,6 @@ export class CommentsRealtime {
 
     connection.on('commentCreated', (comment: CommentNode) =>
       this.commentCreatedSubject.next(comment),
-    );
-
-    connection.on('attachmentReady', (event: AttachmentReadyEvent) =>
-      this.attachmentReadySubject.next(event),
     );
 
     connection.onreconnected(async () => {

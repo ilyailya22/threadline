@@ -24,8 +24,6 @@ public sealed class CommentsHub : Hub
 
     public const string CommentCreated = "commentCreated";
 
-    public const string AttachmentReady = "attachmentReady";
-
     public override Task OnConnectedAsync() =>
         Groups.AddToGroupAsync(Context.ConnectionId, TopLevelGroup);
 

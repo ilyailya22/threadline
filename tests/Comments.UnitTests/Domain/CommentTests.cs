@@ -75,7 +75,7 @@ public sealed class CommentTests
     [Fact]
     public void A_comment_accepts_one_attachment()
     {
-        var attachment = Attachment.CreateImage("image/png", "photo.png", 2048, "originals/x.png", Now);
+        var attachment = Attachment.CreateImage("image/png", "photo.png", 2048, "files/x.png", "thumbnails/x.webp", 320, 240, Now);
 
         var comment = Comment.CreateRoot(Author(), Body(), Fingerprint(), Now, [attachment]);
 
@@ -86,8 +86,8 @@ public sealed class CommentTests
     [Fact]
     public void A_second_attachment_is_refused()
     {
-        var first = Attachment.CreateImage("image/png", "a.png", 1024, "originals/a.png", Now);
-        var second = Attachment.CreateImage("image/png", "b.png", 1024, "originals/b.png", Now);
+        var first = Attachment.CreateImage("image/png", "a.png", 1024, "files/a.png", "thumbnails/a.webp", 320, 240, Now);
+        var second = Attachment.CreateImage("image/png", "b.png", 1024, "files/b.png", "thumbnails/b.webp", 320, 240, Now);
 
         Should.Throw<DomainException>(() =>
             Comment.CreateRoot(Author(), Body(), Fingerprint(), Now, [first, second]));
@@ -143,30 +143,26 @@ public sealed class AttachmentTests
             Now);
 
         attachment.Kind.ShouldBe(AttachmentKind.TextFile);
-        attachment.Status.ShouldBe(AttachmentStatus.Pending);
+        attachment.ThumbnailPath.ShouldBeNull();
     }
 
     /// <summary>
-    /// The domain refuses to record a "processed" image that does not satisfy the assignment's
-    /// 320×240 rule, so a bug in the resizer becomes a failed message rather than a wrong picture.
+    /// The domain refuses an image that does not satisfy the assignment's 320×240 rule, so a bug in
+    /// the resizer becomes a rejected upload rather than an oversized picture on the page.
     /// </summary>
     [Fact]
-    public void Marking_an_oversized_image_as_processed_is_refused()
+    public void An_oversized_image_is_refused()
     {
-        var attachment = Attachment.CreateImage("image/png", "photo.png", 4096, "originals/p.png", Now);
-
-        Should.Throw<DomainException>(() =>
-            attachment.MarkImageProcessed("files/p.png", "image/png", "files/p-thumb.webp", 640, 480, 2048, Now));
+        Should.Throw<DomainException>(() => Attachment.CreateImage(
+            "image/png", "photo.png", 2048, "files/p.png", "thumbnails/p.webp", 640, 480, Now));
     }
 
     [Fact]
-    public void A_processed_image_becomes_servable()
+    public void A_stored_image_is_servable_the_moment_it_exists()
     {
-        var attachment = Attachment.CreateImage("image/jpeg", "photo.jpg", 400_000, "originals/p.png", Now);
+        var attachment = Attachment.CreateImage(
+            "image/png", "photo.jpg", 20_000, "files/p.png", "thumbnails/p.webp", 320, 240, Now);
 
-        attachment.MarkImageProcessed("files/p.png", "image/png", "files/p-thumb.webp", 320, 240, 20_000, Now);
-
-        attachment.Status.ShouldBe(AttachmentStatus.Ready);
         attachment.Width.ShouldBe(320);
         attachment.Height.ShouldBe(240);
         attachment.ThumbnailPath.ShouldNotBeNull();

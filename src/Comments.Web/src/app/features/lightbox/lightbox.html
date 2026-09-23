@@ -8,9 +8,16 @@
 
         <div class="lightbox__actions">
           @if (item.downloadUrl) {
-            <a class="lightbox__download" [href]="item.downloadUrl" download>Скачать</a>
+            <a class="lightbox__download" [href]="item.downloadUrl" download>{{
+              t('lightbox.download')
+            }}</a>
           }
-          <button type="button" class="lightbox__close" (click)="close()" aria-label="Закрыть">
+          <button
+            type="button"
+            class="lightbox__close"
+            (click)="close()"
+            [attr.aria-label]="t('lightbox.close')"
+          >
             ✕
           </button>
         </div>
@@ -20,7 +27,7 @@
         @if (item.kind === 'image') {
           <img class="lightbox__image" [src]="item.imageUrl" [alt]="item.title" />
         } @else if (lightbox.loading()) {
-          <p class="lightbox__loading">Загрузка…</p>
+          <p class="lightbox__loading">{{ t('lightbox.loading') }}</p>
         } @else {
           <pre class="lightbox__text">{{ item.text }}</pre>
         }
