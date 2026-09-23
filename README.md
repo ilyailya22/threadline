@@ -7,6 +7,10 @@ Built as a test assignment at the **Middle+** level — every requirement from t
 level through Middle+ is implemented, and the architecture is sized for the target the assignment
 sets: **1,000,000 comments and 100,000 users in 24 hours**.
 
+**Live:** https://threadline-dev-web.mangomushroom-fa88b7a3.canadacentral.azurecontainerapps.io
+— deployed on Azure Container Apps from [`deploy/bicep`](deploy/bicep). The first request may take
+a few seconds while the serverless database resumes.
+
 ```bash
 git clone <repository-url>
 cd threadline-comments

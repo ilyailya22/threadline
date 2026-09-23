@@ -15,16 +15,21 @@ namespace Threadline.Comments.Api.Contracts;
 /// pipeline. They are not the authority: the real rules live in
 /// <c>CreateCommentCommandValidator</c> and in the domain value objects, and those run on every
 /// request regardless of what this model says.
+/// <para>
+/// Nothing identifying the author is marked required, because whether it is required depends on
+/// the cookie, which this model cannot see: a guest must supply a name, an address and a CAPTCHA,
+/// an account must not supply any of them. Only the validator knows which case it is, so these
+/// stay optional here and are enforced there. What remains are ceilings, and a ceiling holds
+/// either way.
+/// </para>
 /// </remarks>
 public sealed class CreateCommentRequest
 {
-    [Required]
-    [StringLength(Domain.Users.UserName.MaxLength, MinimumLength = Domain.Users.UserName.MinLength)]
-    public string UserName { get; set; } = string.Empty;
+    [StringLength(Domain.Users.UserName.MaxLength)]
+    public string? UserName { get; set; }
 
-    [Required]
     [StringLength(EmailAddress.MaxLength)]
-    public string Email { get; set; } = string.Empty;
+    public string? Email { get; set; }
 
     [StringLength(HomePageUrl.MaxLength)]
     public string? HomePage { get; set; }
@@ -36,12 +41,10 @@ public sealed class CreateCommentRequest
     /// <summary>The comment being replied to; omit to start a new thread.</summary>
     public Guid? ParentId { get; set; }
 
-    [Required]
-    public Guid CaptchaId { get; set; }
+    public Guid? CaptchaId { get; set; }
 
-    [Required]
-    [StringLength(CaptchaAnswerFormat.MaxLength, MinimumLength = 1)]
-    public string CaptchaAnswer { get; set; } = string.Empty;
+    [StringLength(CaptchaAnswerFormat.MaxLength)]
+    public string? CaptchaAnswer { get; set; }
 
     /// <summary>Optional image (JPG/GIF/PNG) or text file (TXT).</summary>
     public IFormFile? File { get; set; }
@@ -51,5 +54,14 @@ public sealed class CreateCommentRequest
     /// author taken from the cookie rather than from the form.
     /// </summary>
     public CreateCommentCommand ToCommand(Guid? authorId, AttachmentUpload? attachment) =>
-        new(authorId, UserName, Email, HomePage, Text, ParentId, CaptchaId, CaptchaAnswer, attachment);
+        new(
+            authorId,
+            UserName ?? string.Empty,
+            Email ?? string.Empty,
+            HomePage,
+            Text,
+            ParentId,
+            CaptchaId ?? Guid.Empty,
+            CaptchaAnswer ?? string.Empty,
+            attachment);
 }

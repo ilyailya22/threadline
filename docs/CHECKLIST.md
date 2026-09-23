@@ -166,11 +166,21 @@ text and the extension says image.
 
 ## The deployed instance
 
+**Live:** https://threadline-dev-web.mangomushroom-fa88b7a3.canadacentral.azurecontainerapps.io
+
 Region canadacentral, resource group `rg-threadline-dev`, deployed from the Bicep in
 [`deploy/bicep`](../deploy/bicep) — see [DEPLOYMENT.md](DEPLOYMENT.md) for the commands, the cost
 and a teardown that leaves nothing billable behind.
 
-Two things only a real deployment could surface, both now fixed in the template:
+Four things only a real deployment could surface, all now fixed in the template or the code:
+
+* **The session lasted exactly one request.** Data Protection generates its key ring in memory, so
+  each of the API's replicas had its own: a cookie encrypted by one could not be read by any other,
+  and the caller silently looked like a guest again. Nothing failed loudly and nothing reproduced
+  locally, where there is a single instance. The ring now lives in the storage account, shared.
+* **The session cookie was issued without `Secure`.** nginx forwarded `$scheme`, which is its own —
+  and it sits behind an ingress that has already terminated TLS, so it reported every HTTPS request
+  as plaintext. It now passes on the scheme the browser actually used.
 
 * **RabbitMQ would not start.** Its Erlang cookie lived on an Azure Files share, and SMB cannot
   express mode 400 or file ownership. The broker is ephemeral now — SQL plus the outbox is the
@@ -179,8 +189,9 @@ Two things only a real deployment could surface, both now fixed in the template:
   terminates TLS on the internal ingress, so the upstream has to be the API's internal FQDN over
   https, with SNI, HTTP/1.1 and `Host` set to that name rather than the browser's.
 
-Getting there also needed two subscription-level workarounds that are not code: a new Free Trial is
-refused in most European regions (`RequestDisallowedByAzure`), and `az acr build` is disabled on it,
-so the images are built locally and pushed.
+Getting there also needed three subscription-level workarounds that are not code: a new Free Trial is
+refused in most European regions (`RequestDisallowedByAzure`), `az acr build` is disabled on it, so
+the images are built locally and pushed, and the subscription allows **one Container Apps environment
+per region** — a second stack cannot be raised alongside the first for a side-by-side cutover.
 
 `docker compose up -d --build` is the always-working path and is what the demo video records.

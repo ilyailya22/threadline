@@ -4,7 +4,7 @@
   "parameters": {
     "applicationName": { "value": "threadline" },
     "environmentName": { "value": "dev" },
-    "location": { "value": "westeurope" },
+    "location": { "value": "canadacentral" },
     "sqlAdminLogin": { "value": "tladmin" },
 
     "//": "Secrets are NOT in this file. Pass them on the command line, or reference a Key Vault. See docs/DEPLOYMENT.md.",

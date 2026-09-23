@@ -3,7 +3,7 @@
 | Layer | Project | Count | Needs | Runs in |
 |---|---|---|---|---|
 | Unit | `tests/Comments.UnitTests` | 182 | nothing | < 1 s |
-| Integration | `tests/Comments.IntegrationTests` | 33 | Docker | ~1 min after images are pulled |
+| Integration | `tests/Comments.IntegrationTests` | 42 | Docker | ~1 min after images are pulled |
 | Load | `loadtests/k6`, `tests/Comments.LoadTests` | 3 + 3 scenarios | a running stack | minutes |
 | Frontend | `src/Comments.Web` (`ng test`, Vitest; `ng lint`) | 24 | Node 24 | seconds |
 
@@ -46,6 +46,13 @@ Between tests every store is reset: SQL by Respawn, Elasticsearch by `_delete_by
 the application's own invalidation — after waiting for the previous test's pipeline to drain, so no
 in-flight projection leaks a document into the next test.
 
+Accounts are covered here rather than in unit tests, because what matters about them is the
+round trip: registering issues a cookie, the cookie survives the next request, and the comment form
+behaves differently depending on whether it arrived. The suite registers, signs in with the wrong
+password, follows a confirmation token taken from the captured e-mail, posts without a CAPTCHA,
+renames the account, and uploads an avatar; it also asserts that a guest cannot claim an address an
+account owns, and that a failed sign-in reads the same whether the address exists or not.
+
 ### What they caught
 
 Running against real engines found defects no unit test could have:
@@ -57,6 +64,7 @@ Running against real engines found defects no unit test could have:
 | Closing tag of a demoted tag | `<a href="javascript:…">x</a>` refused the whole comment | the closing tag is demoted with its opening |
 | Model-binding errors in PascalCase | the form could not attach `UserName` errors to its `userName` field | camelCase everywhere |
 | Test configuration read too late | the API under test silently connected to the developer's local stack | `UseSetting`, applied before `Program` runs |
+| `[Required]` on the guest-only form fields | a signed-in account could not post at all: model binding demanded a name, an address and a CAPTCHA answer before any code that knew about the cookie ran | the annotations became ceilings; whether a field is required is decided by the validator, which can see the author |
 
 Running the full Docker stack by hand found the rest — see the commit history around
 `fix: defects found by running the stack end to end`.
