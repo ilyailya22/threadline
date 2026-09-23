@@ -3,7 +3,7 @@
 A comments board: anyone can post, anyone can reply to anything, and the replies nest without limit.
 Top-level comments appear in a sortable table, 25 to a page, newest first.
 
-Built for the Threadline test assignment at the **Middle+** level — every requirement from the base
+Built as a test assignment at the **Middle+** level — every requirement from the base
 level through Middle+ is implemented, and the architecture is sized for the target the assignment
 sets: **1,000,000 comments and 100,000 users in 24 hours**.
 
@@ -289,8 +289,6 @@ Scenarios, service level objectives and measured results are in
 
 ## Deploying to Azure
 
-**Live:** <https://threadline-dev-web.delightfulpebble-27670933.canadacentral.azurecontainerapps.io>
-
 Infrastructure is Bicep; delivery is GitHub Actions using OIDC federated credentials, so no secret
 is stored in the repository.
 
@@ -359,7 +357,7 @@ without a database.
 
 ## Licence and third-party notices
 
-Written for the Threadline test assignment.
+Written as a test assignment.
 
 - Roboto Mono (SIL Open Font License 1.1) is embedded for CAPTCHA rendering —
   `src/Comments.Infrastructure/Captcha/Fonts/OFL.txt`.

@@ -7,7 +7,7 @@
 
 ## 0. Context
 
-**Task source:** Threadline test assignment — "SPA-приложение: Комментарии".
+**Task source:** a test assignment — "SPA application: Comments".
 
 **Grading matrix (cumulative — Middle+ must contain everything below):**
 

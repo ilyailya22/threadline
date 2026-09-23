@@ -5,8 +5,8 @@ Everything needed to put the system on Azure is in the repository: Bicep templat
 [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml). The template is validated with
 `az bicep build`.
 
-> **Status — deployed.** The stack runs on Azure today:
-> <https://threadline-dev-web.delightfulpebble-27670933.canadacentral.azurecontainerapps.io>
+> **Status — deployed.** The stack runs on Azure, and `az deployment sub show … --query
+> properties.outputs.webUrl.value` prints the URL of the running instance.
 >
 > Region **canadacentral**, resource group `rg-threadline-dev`, deployed by hand with the commands
 > below (Path A) on an Azure Free Trial (USD 200 credit for 30 days), which covers it comfortably —

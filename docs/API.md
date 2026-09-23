@@ -41,7 +41,7 @@ per-field messages keyed in camelCase, matching the form's control names:
     "replyCount": 1,
     "lastReplyAt": "2026-09-18T08:19:48.9522917+00:00",
     "attachments": [{
-      "id": "…", "kind": "Image", "status": "Ready", "contentType": "image/png",
+      "id": "…", "kind": "Image", "contentType": "image/png",
       "originalFileName": "big.png", "sizeBytes": 1878,
       "url": "/api/attachments/…/content", "thumbnailUrl": "/api/attachments/…/thumbnail",
       "width": 320, "height": 180
@@ -176,7 +176,6 @@ Hub: `/hubs/comments`. Every connection is in the top-level group automatically.
 | Direction | Name | Payload |
 |---|---|---|
 | server → client | `commentCreated` | a comment node; top-level to everyone, replies only to watchers of that thread |
-| server → client | `attachmentReady` | `{ commentId, attachment }` once an image has been processed |
 | client → server | `WatchThread(rootId)` | subscribe to one thread's replies |
 | client → server | `UnwatchThread(rootId)` | unsubscribe |
 

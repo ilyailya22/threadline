@@ -1,7 +1,7 @@
 # Load testing
 
-The Middle+ requirement: *"У нас 1 000 000 сообщений, 100к пользователей в 24 час. Заложи в
-архитектуру решение, напиши нагрузочный тест."*
+The Middle+ requirement: *"We have 1,000,000 comments and 100k users in 24 hours. Design the
+architecture for it and write a load test."*
 
 This document covers what the target means in requests per second, how the dataset is produced,
 the scenarios, the pass/fail thresholds, and how to read the results.
