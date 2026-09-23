@@ -11,6 +11,14 @@ public sealed class OutboxMessageTests
 {
     private static readonly DateTimeOffset Now = new(2026, 9, 19, 12, 0, 0, TimeSpan.Zero);
 
+    /// <summary>The published contract of a new comment — what an outbox row actually carries.</summary>
+    private static object AnEvent() =>
+        IntegrationEvents.From(Comment.CreateRoot(
+            User.Register(UserName.Create("Anonym"), EmailAddress.Create("anonym@example.com"), null, Now),
+            CommentBody.FromSanitized("Hi", "Hi"),
+            ClientFingerprint.Create(new string('a', 64), userAgent: null, clientId: null),
+            Now).DomainEvents.Single())!;
+
     [Fact]
     public void A_domain_event_becomes_an_outbox_row_that_reads_back_as_its_contract()
     {
@@ -34,11 +42,7 @@ public sealed class OutboxMessageTests
     [Fact]
     public void Failed_attempts_back_off_exponentially_up_to_a_ceiling()
     {
-        var message = OutboxMessage.For(Guid.CreateVersion7(), new AttachmentReadyIntegrationEvent
-        {
-            CommentId = Guid.CreateVersion7(),
-            AttachmentId = Guid.CreateVersion7(),
-        }, Now);
+        var message = OutboxMessage.For(Guid.CreateVersion7(), AnEvent(), Now);
 
         var delays = new List<TimeSpan>();
 
@@ -57,11 +61,7 @@ public sealed class OutboxMessageTests
     [Fact]
     public void A_long_error_is_truncated_to_fit_its_column()
     {
-        var message = OutboxMessage.For(Guid.CreateVersion7(), new AttachmentReadyIntegrationEvent
-        {
-            CommentId = Guid.CreateVersion7(),
-            AttachmentId = Guid.CreateVersion7(),
-        }, Now);
+        var message = OutboxMessage.For(Guid.CreateVersion7(), AnEvent(), Now);
 
         message.MarkFailed(new string('x', OutboxMessage.MaxErrorLength * 2), Now);
 
@@ -71,11 +71,7 @@ public sealed class OutboxMessageTests
     [Fact]
     public void Publishing_clears_the_last_error()
     {
-        var message = OutboxMessage.For(Guid.CreateVersion7(), new AttachmentReadyIntegrationEvent
-        {
-            CommentId = Guid.CreateVersion7(),
-            AttachmentId = Guid.CreateVersion7(),
-        }, Now);
+        var message = OutboxMessage.For(Guid.CreateVersion7(), AnEvent(), Now);
 
         message.MarkFailed("transient", Now);
         message.MarkPublished(Now.AddSeconds(1));

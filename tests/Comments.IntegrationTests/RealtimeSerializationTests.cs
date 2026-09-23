@@ -33,7 +33,6 @@ public sealed class RealtimeSerializationTests(CommentsApiFactory factory)
         var attachment = new AttachmentDto(
             Guid.CreateVersion7(),
             AttachmentKind.Image,
-            AttachmentStatus.Ready,
             "image/png",
             "cat.jpg",
             83524,
@@ -45,6 +44,5 @@ public sealed class RealtimeSerializationTests(CommentsApiFactory factory)
         var payload = JsonSerializer.Serialize(attachment, hubJson);
 
         payload.ShouldContain("\"kind\":\"Image\"");
-        payload.ShouldContain("\"status\":\"Ready\"");
     }
 }

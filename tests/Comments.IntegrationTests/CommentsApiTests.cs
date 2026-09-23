@@ -8,6 +8,7 @@ using Threadline.Comments.Application.Common.Models;
 using Threadline.Comments.Domain.Comments;
 using Threadline.Comments.IntegrationTests.Infrastructure;
 using Shouldly;
+using SkiaSharp;
 
 namespace Threadline.Comments.IntegrationTests;
 
@@ -24,9 +25,19 @@ public sealed class CommentsApiTests(CommentsApiFactory factory) : IAsyncLifetim
         Converters = { new JsonStringEnumConverter() },
     };
 
-    /// <summary>A valid 1×1 PNG: the smallest real image the upload pipeline will accept.</summary>
-    private static readonly byte[] OnePixelPng = Convert.FromBase64String(
-        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==");
+    /// <summary>A real PNG of the given size, so the upload path has something to downscale.</summary>
+    private static byte[] WidePng(int width, int height)
+    {
+        using var bitmap = new SKBitmap(width, height);
+        using var canvas = new SKCanvas(bitmap);
+
+        canvas.Clear(SKColors.CornflowerBlue);
+
+        using var image = SKImage.FromBitmap(bitmap);
+        using var encoded = image.Encode(SKEncodedImageFormat.Png, 100);
+
+        return encoded.ToArray();
+    }
 
     private HttpClient _client = null!;
 
@@ -439,12 +450,11 @@ public sealed class CommentsApiTests(CommentsApiFactory factory) : IAsyncLifetim
     // ---------------------------------------------------------------- attachments
 
     [Fact]
-    public async Task A_new_comment_returns_its_attachment_still_pending()
+    public async Task An_uploaded_image_comes_back_already_downscaled_and_servable()
     {
-        // The client draws the comment from this response before the search index has it. Without
-        // the attachment here, the "ready" push that follows has no row to update, and the author
-        // never sees their own picture until they reload.
-        var response = await PostFormAsync(ValidForm(), ("pixel.png", "image/png", OnePixelPng));
+        // The assignment says an oversized image is scaled down on upload, so the response — and
+        // the blob behind it — must already be the small one. Nothing here waits for a worker.
+        var response = await PostFormAsync(ValidForm(), ("wide.png", "image/png", WidePng(1600, 1200)));
 
         response.StatusCode.ShouldBe(HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
 
@@ -452,8 +462,19 @@ public sealed class CommentsApiTests(CommentsApiFactory factory) : IAsyncLifetim
         var attachment = created!.Attachments.ShouldHaveSingleItem();
 
         attachment.Kind.ShouldBe(AttachmentKind.Image);
-        attachment.Status.ShouldBe(AttachmentStatus.Pending);
-        attachment.OriginalFileName.ShouldBe("pixel.png");
+        attachment.OriginalFileName.ShouldBe("wide.png");
+        attachment.ContentType.ShouldBe("image/png");
+        attachment.Width.ShouldBe(320);
+        attachment.Height.ShouldBe(240);
+        attachment.ThumbnailUrl.ShouldNotBeNull();
+
+        using var content = await _client.GetAsync(attachment.Url);
+        content.StatusCode.ShouldBe(HttpStatusCode.OK);
+        content.Content.Headers.ContentType!.MediaType.ShouldBe("image/png");
+
+        using var thumbnail = await _client.GetAsync(attachment.ThumbnailUrl);
+        thumbnail.StatusCode.ShouldBe(HttpStatusCode.OK);
+        thumbnail.Content.Headers.ContentType!.MediaType.ShouldBe("image/webp");
     }
 
     // ---------------------------------------------------------------- helpers

@@ -36,6 +36,9 @@ public sealed class Attachment : Entity
         string originalFileName,
         long sizeBytes,
         string storagePath,
+        string? thumbnailPath,
+        int? width,
+        int? height,
         DateTimeOffset createdAt)
         : base(id)
     {
@@ -44,15 +47,15 @@ public sealed class Attachment : Entity
         OriginalFileName = originalFileName;
         SizeBytes = sizeBytes;
         StoragePath = storagePath;
-        Status = AttachmentStatus.Pending;
+        ThumbnailPath = thumbnailPath;
+        Width = width;
+        Height = height;
         CreatedAt = createdAt;
     }
 
     public Guid CommentId { get; private set; }
 
     public AttachmentKind Kind { get; private set; }
-
-    public AttachmentStatus Status { get; private set; }
 
     public string ContentType { get; private set; } = null!;
 
@@ -73,21 +76,37 @@ public sealed class Attachment : Entity
 
     public DateTimeOffset CreatedAt { get; private set; }
 
-    public DateTimeOffset? ProcessedAt { get; private set; }
-
-    public string? FailureReason { get; private set; }
-
+    /// <summary>
+    /// An image that has already been downscaled — the only kind of image this aggregate holds.
+    /// </summary>
+    /// <remarks>
+    /// The assignment says an oversized image is scaled down <em>on upload</em>, so there is no
+    /// half-finished state to model: by the time a comment exists, what is stored is what is
+    /// served. The content type is the processor's output format, not the upload's — keeping the
+    /// latter would serve a PNG labelled image/jpeg.
+    /// </remarks>
     public static Attachment CreateImage(
         string contentType,
         string originalFileName,
         long sizeBytes,
         string storagePath,
+        string thumbnailPath,
+        int width,
+        int height,
         DateTimeOffset now)
     {
-        if (sizeBytes is <= 0 or > MaxImageUploadBytes)
+        ArgumentException.ThrowIfNullOrWhiteSpace(contentType);
+        ArgumentException.ThrowIfNullOrWhiteSpace(thumbnailPath);
+
+        if (sizeBytes <= 0)
+        {
+            throw new DomainException("A stored image must not be empty.");
+        }
+
+        if (width is <= 0 or > MaxImageWidth || height is <= 0 or > MaxImageHeight)
         {
             throw new DomainException(
-                $"An image must be between 1 byte and {MaxImageUploadBytes / (1024 * 1024)} MB.");
+                $"A stored image must fit into {MaxImageWidth}×{MaxImageHeight} pixels, got {width}×{height}.");
         }
 
         return new Attachment(
@@ -97,6 +116,9 @@ public sealed class Attachment : Entity
             Sanitize(originalFileName),
             sizeBytes,
             storagePath,
+            thumbnailPath,
+            width,
+            height,
             now);
     }
 
@@ -119,62 +141,10 @@ public sealed class Attachment : Entity
             Sanitize(originalFileName),
             sizeBytes,
             storagePath,
+            thumbnailPath: null,
+            width: null,
+            height: null,
             now);
-    }
-
-    /// <summary>Called by the worker once the image has been downscaled and a thumbnail produced.</summary>
-    public void MarkImageProcessed(
-        string storagePath,
-        string contentType,
-        string thumbnailPath,
-        int width,
-        int height,
-        long sizeBytes,
-        DateTimeOffset now)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(contentType);
-
-        if (Kind != AttachmentKind.Image)
-        {
-            throw new DomainException("Only image attachments can be marked as image-processed.");
-        }
-
-        if (width is <= 0 or > MaxImageWidth || height is <= 0 or > MaxImageHeight)
-        {
-            throw new DomainException(
-                $"A processed image must fit into {MaxImageWidth}×{MaxImageHeight} pixels, got {width}×{height}.");
-        }
-
-        // The stored file is re-encoded, so its type is the processor's output format, not what was
-        // uploaded. Keeping the upload's type would serve a PNG labelled image/jpeg.
-        StoragePath = storagePath;
-        ContentType = contentType;
-        ThumbnailPath = thumbnailPath;
-        Width = width;
-        Height = height;
-        SizeBytes = sizeBytes;
-        Status = AttachmentStatus.Ready;
-        ProcessedAt = now;
-        FailureReason = null;
-    }
-
-    public void MarkTextProcessed(DateTimeOffset now)
-    {
-        if (Kind != AttachmentKind.TextFile)
-        {
-            throw new DomainException("Only text attachments can be marked as text-processed.");
-        }
-
-        Status = AttachmentStatus.Ready;
-        ProcessedAt = now;
-        FailureReason = null;
-    }
-
-    public void MarkFailed(string reason, DateTimeOffset now)
-    {
-        Status = AttachmentStatus.Failed;
-        FailureReason = reason[..Math.Min(reason.Length, 1024)];
-        ProcessedAt = now;
     }
 
     internal void AttachTo(Guid commentId) => CommentId = commentId;

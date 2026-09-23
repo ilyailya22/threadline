@@ -6,9 +6,4 @@ namespace Threadline.Comments.Application.Common.Abstractions;
 public interface ICommentNotifier
 {
     Task CommentCreatedAsync(CommentNodeDto comment, CancellationToken cancellationToken = default);
-
-    Task AttachmentReadyAsync(
-        Guid commentId,
-        AttachmentDto attachment,
-        CancellationToken cancellationToken = default);
 }

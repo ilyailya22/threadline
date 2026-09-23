@@ -30,6 +30,12 @@ public interface ICommentSearchIndex
         string? searchText = null,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// When the newest indexed top-level comment was created, or <see langword="null"/> for an
+    /// empty index. Compared against SQL to tell a lagging projection from a healthy one.
+    /// </summary>
+    Task<DateTimeOffset?> GetNewestCreatedAtAsync(CancellationToken cancellationToken = default);
+
     Task IndexManyAsync(
         IReadOnlyCollection<CommentSearchDocument> documents,
         CancellationToken cancellationToken = default);

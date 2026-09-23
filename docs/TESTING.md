@@ -2,10 +2,10 @@
 
 | Layer | Project | Count | Needs | Runs in |
 |---|---|---|---|---|
-| Unit | `tests/Comments.UnitTests` | 177 | nothing | < 1 s |
-| Integration | `tests/Comments.IntegrationTests` | 32 | Docker | ~1 min after images are pulled |
+| Unit | `tests/Comments.UnitTests` | 182 | nothing | < 1 s |
+| Integration | `tests/Comments.IntegrationTests` | 33 | Docker | ~1 min after images are pulled |
 | Load | `loadtests/k6`, `tests/Comments.LoadTests` | 3 + 3 scenarios | a running stack | minutes |
-| Frontend | `src/Comments.Web` (`ng test`, Vitest; `ng lint`) | 20 | Node 24 | seconds |
+| Frontend | `src/Comments.Web` (`ng test`, Vitest; `ng lint`) | 24 | Node 24 | seconds |
 
 ```bash
 dotnet test tests/Comments.UnitTests

@@ -8,6 +8,7 @@ namespace Threadline.Comments.Application.Attachments;
 public sealed class AttachmentIntakeService(
     IFileTypeSniffer sniffer,
     IFileStorage storage,
+    IImageProcessor images,
     IDateTimeProvider clock) : IAttachmentIntakeService
 {
     private const string FieldName = "file";
@@ -55,46 +56,97 @@ public sealed class AttachmentIntakeService(
                 $"A text file must not exceed {Attachment.MaxTextFileBytes / 1024} KB.");
         }
 
-        var now = clock.UtcNow;
-
-        // The stored path is built entirely from server-side values. The user's file name is kept
-        // on the entity for display, but never participates in a path.
-        var attachmentId = Guid.CreateVersion7(now);
-        var storagePath = BuildPath(now, attachmentId, detected, original: true);
-
         if (upload.Content.CanSeek)
         {
             upload.Content.Position = 0;
         }
 
-        await storage.SaveAsync(storagePath, upload.Content, detected.ContentType, cancellationToken);
+        var now = clock.UtcNow;
+        var attachmentId = Guid.CreateVersion7(now);
 
         return detected.Kind == AttachmentKind.Image
-            ? Attachment.CreateImage(
-                detected.ContentType,
-                upload.FileName,
-                upload.Length,
-                storagePath,
-                now)
-            : Attachment.CreateTextFile(
-                upload.FileName,
-                upload.Length,
-                storagePath,
-                now);
+            ? await StoreImageAsync(upload, attachmentId, now, cancellationToken)
+            : await StoreTextFileAsync(upload, attachmentId, detected, now, cancellationToken);
     }
 
     /// <summary>
-    /// Blob layout: <c>originals|files/yyyy/MM/dd/{id}{ext}</c>. Date-partitioned so that listing,
+    /// Downscales the image and stores what will be served.
+    /// </summary>
+    /// <remarks>
+    /// This happens in the request, before the comment is saved, because the assignment says an
+    /// oversized image is scaled down on upload. Doing it on a worker instead would mean the
+    /// original — up to ten megabytes of it — is what the page serves until the worker gets round
+    /// to it, and nothing at all if the worker is down. Decoding and resampling a large photograph
+    /// costs a few hundred milliseconds of one request; that is the right place to pay it.
+    /// </remarks>
+    private async Task<Attachment> StoreImageAsync(
+        AttachmentUpload upload,
+        Guid attachmentId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var processed = await images.DownscaleAsync(
+            upload.Content,
+            Attachment.MaxImageWidth,
+            Attachment.MaxImageHeight,
+            cancellationToken);
+
+        var storagePath = BuildPath(now, attachmentId, ProcessedImageFormat.DisplayExtension, thumbnail: false);
+        var thumbnailPath = BuildPath(now, attachmentId, ProcessedImageFormat.ThumbnailExtension, thumbnail: true);
+
+        await SaveAsync(storagePath, processed.Content, ProcessedImageFormat.DisplayContentType, cancellationToken);
+        await SaveAsync(thumbnailPath, processed.Thumbnail, ProcessedImageFormat.ThumbnailContentType, cancellationToken);
+
+        return Attachment.CreateImage(
+            ProcessedImageFormat.DisplayContentType,
+            upload.FileName,
+            processed.Content.LongLength,
+            storagePath,
+            thumbnailPath,
+            processed.Width,
+            processed.Height,
+            now);
+    }
+
+    private async Task<Attachment> StoreTextFileAsync(
+        AttachmentUpload upload,
+        Guid attachmentId,
+        SniffedFileType detected,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var storagePath = BuildPath(now, attachmentId, detected.Extensions[0], thumbnail: false);
+
+        await storage.SaveAsync(storagePath, upload.Content, detected.ContentType, cancellationToken);
+
+        return Attachment.CreateTextFile(upload.FileName, upload.Length, storagePath, now);
+    }
+
+    /// <summary>
+    /// Blob layout: <c>files|thumbnails/yyyy/MM/dd/{id}{ext}</c>. Date-partitioned so that listing,
     /// lifecycle rules and cold-tier archiving stay cheap once the container holds millions of blobs.
+    /// The path is built entirely from server-side values; the user's file name is kept on the
+    /// entity for display and never participates in a path.
     /// </summary>
     public static string BuildPath(
         DateTimeOffset now,
         Guid attachmentId,
-        SniffedFileType type,
-        bool original) =>
+        string extension,
+        bool thumbnail) =>
         string.Create(
             System.Globalization.CultureInfo.InvariantCulture,
-            $"{(original ? "originals" : "files")}/{now:yyyy/MM/dd}/{attachmentId:N}{type.Extensions[0]}");
+            $"{(thumbnail ? "thumbnails" : "files")}/{now:yyyy/MM/dd}/{attachmentId:N}{extension}");
+
+    private async Task SaveAsync(
+        string path,
+        byte[] content,
+        string contentType,
+        CancellationToken cancellationToken)
+    {
+        using var stream = new MemoryStream(content, writable: false);
+
+        await storage.SaveAsync(path, stream, contentType, cancellationToken);
+    }
 
     private static async Task<int> ReadHeaderAsync(
         Stream content,

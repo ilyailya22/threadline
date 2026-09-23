@@ -181,8 +181,9 @@ poison message cannot starve the queue behind it.
 GET /api/comments?sortBy=email&direction=ascending&page=7
       │
       ├─ 1. Redis (HybridCache: in-process L1 + Redis L2)   ── hit ──▶ done
-      ├─ 2. Elasticsearch                                   ── ok  ──▶ cache and return
-      └─ 3. SQL Server                                       (only if search is down)
+      ├─ 2. Is the index current?                           ── no  ──▶ SQL Server
+      ├─ 3. Elasticsearch                                   ── ok  ──▶ cache and return
+      └─ 4. SQL Server                                       (search unavailable)
 ```
 
 **Why Elasticsearch and not just SQL.** The table sorts by user name and e-mail, which live on
@@ -203,11 +204,21 @@ The cache interface is **get-or-create**, not get/set. Under this traffic a plai
 cache-stampede failure mode: the moment a hot key expires, every concurrent request misses at once
 and they all run the same expensive query.
 
-**Why keep the SQL path at all.** Graceful degradation. If the search cluster is unavailable the
-list is answered from SQL — slower, but correct. A comments board that returns 500 because a search
-node restarted is a worse system than one that is briefly slower. The Elasticsearch health check is
-deliberately *not* tagged `ready`, so a degraded search cluster does not take API instances out of
-the load balancer.
+**Why keep the SQL path at all.** Graceful degradation, for two different failures.
+
+The loud one: the search cluster is unavailable, the query throws, and the list is answered from
+SQL — slower, but correct. A comments board that returns 500 because a search node restarted is a
+worse system than one that is briefly slower. The Elasticsearch health check is deliberately *not*
+tagged `ready`, so a degraded search cluster does not take API instances out of the load balancer.
+
+The quiet one, which is the more dangerous: the cluster is healthy and answers every query, but
+nothing is feeding it — the worker is stopped, the broker is unreachable, a consumer is stuck
+retrying. Then a comment is in the database and invisible on the page, and no exception is thrown
+anywhere. So freshness is measured rather than inferred: [`SearchIndexFreshness`](../src/Comments.Infrastructure/Search/SearchIndexFreshness.cs)
+compares the newest top-level comment in SQL with the newest document in the index — two single-row
+reads, on the same request that was already a cache miss — and the list goes to SQL when the index
+has been behind for longer than ordinary lag. That covers every way the pipeline can stall,
+including ones not invented yet.
 
 **Deep paging is capped** at 10,000 items with a clear error. Past that, offset paging degrades on
 every engine — Elasticsearch refuses beyond `index.max_result_window` outright — so the API says so
@@ -236,8 +247,8 @@ Index 1 is both **filtered** and **covering**. Filtered because only ~4% of a mi
 top-level, so the index holds 40,000 entries rather than a million. Covering because the included
 columns mean the query never touches the base table.
 
-The outbox and attachment indexes are filtered on their pending states, so they shrink back to
-near-empty as work drains — which is the normal state — rather than growing with all history.
+The outbox index is filtered on the pending state, so it shrinks back to near-empty as work drains
+— which is the normal state — rather than growing with all history.
 
 ---
 
@@ -245,21 +256,18 @@ near-empty as work drains — which is the normal state — rather than growing 
 
 ```
 OutboxPublisher ──▶ RabbitMQ (fanout) ──┬──▶ comment-indexer          (worker)
-                                        ├──▶ attachment-processor     (worker)
                                         └──▶ comment-broadcast        (API)
 ```
 
-Each consumer has its own queue, so a slow indexer does not delay a live update, and a failing
-image processor does not stop search from being current.
+Each consumer has its own queue, so a slow indexer does not delay a live update.
 
 The split between processes is deliberate:
 
-- The **worker** owns everything CPU- or IO-heavy. Scaling it is scaling throughput.
+- The **worker** owns the projection into Elasticsearch. Scaling it is scaling throughput.
 - The **API** owns only the SignalR fan-out, because hub connections live in the web tier.
 
-When the worker finishes an image it publishes `AttachmentReadyIntegrationEvent` rather than
-touching SignalR itself. The worker therefore knows nothing about how the news reaches a browser,
-and can be restarted, scaled or moved without touching the web tier.
+The indexer knows nothing about how news reaches a browser, and can be restarted, scaled or moved
+without touching the web tier.
 
 Retries are exponential with a dead-letter queue, plus a kill switch so that a broker outage does
 not turn into a thundering herd the moment it comes back.
@@ -268,22 +276,28 @@ not turn into a thundering herd the moment it comes back.
 
 ## 7. Attachments
 
-Acceptance and processing are separate steps on purpose.
+An upload is accepted and processed in the same request, before the comment is stored:
 
-**Accept** (synchronous, cheap): sniff the magic bytes, check the declared extension agrees with
-them, enforce the size limits, stream to Blob Storage. Milliseconds.
+1. Sniff the magic bytes and check the declared extension agrees with them.
+2. Enforce the size limits — 10 MB for an image, 100 KB for a text file.
+3. For an image: apply the EXIF orientation, downscale to at most 320×240 preserving the aspect
+   ratio, encode the display PNG and a WebP thumbnail, store both.
 
-**Process** (asynchronous, expensive): decode, downscale to at most 320×240 preserving the aspect
-ratio, encode a PNG and a WebP thumbnail, write both, delete the original. Tens to hundreds of
-milliseconds and a lot of memory.
+**Why not on a worker.** It was on one, and that was wrong. The assignment says an oversized image
+is scaled down *on upload*; with the work deferred, what the page served until the worker got round
+to it was the original — up to ten megabytes of it — and nothing at all if the worker was down. The
+cost of doing it in the request is a few hundred milliseconds on the one request that carries a
+photograph, which is the right place to pay it. There is no half-finished state to model, no
+`Pending` row, and no "ready" push: by the time a comment exists, what is stored is what is served.
 
-A burst of uploads therefore fills a queue instead of occupying the API's threads and heap. The
-attachment row is `Pending` in between and the UI says "файл обрабатывается…" rather than showing a
-broken image; when the worker is done, SignalR swaps in the real thumbnail.
+The pixel ceiling is checked from the header before decoding, so a 60 KB file declaring
+40000×40000 pixels is one rejected upload rather than an out-of-memory failure.
 
 Re-encoding is also a security control: decoding to pixels and encoding afresh discards EXIF,
 colour profiles and anything appended after the image payload, so a PNG that is also a valid HTML
-document comes out the other side as nothing but pixels.
+document comes out the other side as nothing but pixels. Discarding EXIF is precisely why the
+orientation in it has to be applied first — otherwise every portrait photograph is served on its
+side.
 
 ---
 
@@ -385,7 +399,26 @@ The ones that would change first at real production scale are collected in
 
 ---
 
-## 13. Code conventions
+## 13. Language
+
+The interface is English by default, with Ukrainian one click away in the header; the choice is
+remembered per browser and applies instantly, without a reload.
+
+That rules out Angular's build-time `$localize`, which ships a bundle per language and changes the
+URL to change the words — a reasonable trade for a marketing site with ten locales, and the wrong
+one for a switch between two. Instead [`core/i18n`](../src/Comments.Web/src/app/core/i18n) holds
+both catalogues in one file and exposes `t(key, params)`; because `t` reads a signal, every
+template that calls it re-renders the moment the language changes.
+
+Two things the types enforce, so a missing translation is a build error rather than something a
+reader finds: the Ukrainian catalogue is typed from the English one, so it must carry every key,
+and a column heading or a toolbar tooltip is a `MessageKey` rather than a string — a caption that
+cannot be translated does not compile. Text the server produces (validation problems) stays in
+English; a message a person reads in the UI is always a key.
+
+---
+
+## 14. Code conventions
 
 The rules below are enforced by the build, not by review: warnings are errors, analyzers run at
 `latest-recommended`, and CI runs `dotnet format --verify-no-changes --severity info` and `ng lint`,

@@ -24,17 +24,4 @@ public sealed class SignalRCommentNotifier(IHubContext<CommentsHub> hub) : IComm
         await hub.Clients.Group(group)
             .SendAsync(CommentsHub.CommentCreated, comment, cancellationToken);
     }
-
-    public async Task AttachmentReadyAsync(
-        Guid commentId,
-        AttachmentDto attachment,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(attachment);
-
-        await hub.Clients.All.SendAsync(
-            CommentsHub.AttachmentReady,
-            new { commentId, attachment },
-            cancellationToken);
-    }
 }

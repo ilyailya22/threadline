@@ -15,6 +15,13 @@ public interface ICommentReadRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// When the newest top-level comment was created, or <see langword="null"/> for an empty board.
+    /// One seek on the covering index; compared against the search index to detect a stalled
+    /// projection.
+    /// </summary>
+    Task<DateTimeOffset?> GetNewestTopLevelCreatedAtAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// One page of a thread, depth-first, read as a single range scan over <c>(RootId, Path)</c>.
     /// Returns <see langword="null"/> when the thread does not exist.
     /// </summary>

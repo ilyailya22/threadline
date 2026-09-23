@@ -16,28 +16,18 @@ public sealed class GetAttachmentContentQueryHandlerTests
     private readonly Mock<IFileStorage> _storage = new();
 
     [Fact]
-    public async Task A_processed_image_is_served_as_the_png_it_was_re_encoded_to_and_may_be_cached()
+    public async Task An_image_is_served_as_the_png_it_was_re_encoded_to()
     {
-        var image = Attachment.CreateImage("image/jpeg", "photo.jpg", 4096, "originals/p.jpg", Now);
-        image.MarkImageProcessed("files/p.png", ProcessedImageFormat.DisplayContentType, "files/p-thumb.webp", 320, 240, 2048, Now);
+        // The upload was a JPEG; what is stored — and therefore what is served — is the PNG the
+        // processor wrote on the way in.
+        var image = Attachment.CreateImage(
+            ProcessedImageFormat.DisplayContentType, "photo.jpg", 2048, "files/p.png", "thumbnails/p.webp", 320, 240, Now);
         Stored(image, "files/p.png");
 
         var file = await Handle(image.Id, thumbnail: false);
 
-        file.ContentType.ShouldBe("image/png");
+        file.ContentType.ShouldBe(ProcessedImageFormat.DisplayContentType);
         file.IsDownload.ShouldBeFalse();
-        file.IsFinal.ShouldBeTrue();
-    }
-
-    [Fact]
-    public async Task An_image_still_being_processed_is_served_but_not_cacheable()
-    {
-        var image = Attachment.CreateImage("image/jpeg", "photo.jpg", 4096, "originals/p.jpg", Now);
-        Stored(image, "originals/p.jpg");
-
-        var file = await Handle(image.Id, thumbnail: false);
-
-        file.IsFinal.ShouldBeFalse();
     }
 
     [Fact]
@@ -55,9 +45,9 @@ public sealed class GetAttachmentContentQueryHandlerTests
     [Fact]
     public async Task A_thumbnail_is_served_as_webp()
     {
-        var image = Attachment.CreateImage("image/png", "photo.png", 4096, "originals/p.png", Now);
-        image.MarkImageProcessed("files/p.png", ProcessedImageFormat.DisplayContentType, "files/p-thumb.webp", 320, 240, 2048, Now);
-        Stored(image, "files/p-thumb.webp");
+        var image = Attachment.CreateImage(
+            ProcessedImageFormat.DisplayContentType, "photo.jpg", 2048, "files/p.png", "thumbnails/p.webp", 320, 240, Now);
+        Stored(image, "thumbnails/p.webp");
 
         var file = await Handle(image.Id, thumbnail: true);
 

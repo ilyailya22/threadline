@@ -6,11 +6,11 @@ namespace Threadline.Comments.Application.Attachments.Queries.GetAttachmentConte
 /// <param name="DownloadFileName">
 /// Set when the file must be downloaded rather than shown in the page — see the handler.
 /// </param>
-/// <param name="IsFinal">
-/// True once processing is done: the bytes behind this URL will never change again, so they may be
-/// cached indefinitely. Before that, the URL still serves the unprocessed upload.
-/// </param>
-public sealed record AttachmentContent(Stream Content, string ContentType, string? DownloadFileName, bool IsFinal)
+/// <remarks>
+/// The bytes behind an attachment URL never change: the file is processed on upload and stored
+/// under a path built from its id, so every response may be cached indefinitely.
+/// </remarks>
+public sealed record AttachmentContent(Stream Content, string ContentType, string? DownloadFileName)
 {
     public bool IsDownload => DownloadFileName is not null;
 }

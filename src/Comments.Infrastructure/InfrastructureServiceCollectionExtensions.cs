@@ -145,6 +145,11 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<ICommentSearchIndex, ElasticsearchCommentIndex>();
         services.AddScoped<CommentSearchProjector>();
 
+        // Scoped, because it reads SQL through a scoped repository; the memo it keeps is per
+        // request rather than per process, which is enough to stop a burst of pages each paying
+        // for the check.
+        services.AddScoped<ISearchIndexFreshness, SearchIndexFreshness>();
+
         return services;
     }
 

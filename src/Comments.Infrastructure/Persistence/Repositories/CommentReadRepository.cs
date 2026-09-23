@@ -20,6 +20,18 @@ namespace Threadline.Comments.Infrastructure.Persistence.Repositories;
 public sealed class CommentReadRepository(AppDbContext context, IAttachmentDtoMapper attachmentMapper)
     : ICommentReadRepository
 {
+    public async Task<DateTimeOffset?> GetNewestTopLevelCreatedAtAsync(
+        CancellationToken cancellationToken = default)
+    {
+        // One seek on the filtered index that serves the LIFO list; it reads a single row.
+        return await context.Comments
+            .AsNoTracking()
+            .Where(c => c.ParentId == null)
+            .OrderByDescending(c => c.CreatedAt)
+            .Select(c => (DateTimeOffset?)c.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     public async Task<PagedResult<CommentListItemDto>> GetTopLevelAsync(
         CommentPageRequest request,
         CancellationToken cancellationToken = default)

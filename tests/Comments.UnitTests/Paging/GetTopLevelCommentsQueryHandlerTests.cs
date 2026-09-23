@@ -51,6 +51,27 @@ public sealed class GetTopLevelCommentsQueryHandlerTests
         result.TotalCount.ShouldBe(7);
     }
 
+    /// <summary>
+    /// The failure that does not throw: Elasticsearch is healthy and returns a page, but nothing
+    /// has been feeding it, so the page is missing comments SQL already holds. The list has to
+    /// notice that by itself — there is no exception to catch.
+    /// </summary>
+    [Fact]
+    public async Task A_lagging_index_is_bypassed_in_favour_of_sql()
+    {
+        SearchReturnsEmptyPage();
+        _sql
+            .Setup(s => s.GetTopLevelAsync(It.IsAny<CommentPageRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PagedResult<CommentListItemDto>([], 1, Page.Size, 3));
+
+        var result = await CreateHandler(indexIsCurrent: false).Handle(Query(1), CancellationToken.None);
+
+        result.TotalCount.ShouldBe(3);
+        _search.Verify(
+            s => s.QueryTopLevelAsync(It.IsAny<CommentPageRequest>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
     private void SearchReturnsEmptyPage() =>
         _search
             .Setup(s => s.QueryTopLevelAsync(It.IsAny<CommentPageRequest>(), null, It.IsAny<CancellationToken>()))
@@ -59,8 +80,20 @@ public sealed class GetTopLevelCommentsQueryHandlerTests
 
     private static GetTopLevelCommentsQuery Query(int page) => new(new CommentPageRequest(page, Page.Size));
 
-    private GetTopLevelCommentsQueryHandler CreateHandler() =>
-        new(_search.Object, _sql.Object, new PassThroughCache(), NullLogger<GetTopLevelCommentsQueryHandler>.Instance);
+    private GetTopLevelCommentsQueryHandler CreateHandler(bool indexIsCurrent = true) =>
+        new(
+            _search.Object,
+            _sql.Object,
+            new FixedFreshness(indexIsCurrent),
+            new PassThroughCache(),
+            NullLogger<GetTopLevelCommentsQueryHandler>.Instance);
+
+    /// <summary>A freshness check with a fixed answer, so each test states the world it is about.</summary>
+    private sealed class FixedFreshness(bool current) : ISearchIndexFreshness
+    {
+        public ValueTask<bool> IsCurrentAsync(CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult(current);
+    }
 
     private static class Page
     {

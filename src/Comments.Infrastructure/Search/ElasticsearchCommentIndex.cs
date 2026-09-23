@@ -125,6 +125,41 @@ public sealed partial class ElasticsearchCommentIndex(
         return Parse(response.Body!, page);
     }
 
+    private static readonly string[] CreatedAtOnly = ["createdAt"];
+
+    public async Task<DateTimeOffset?> GetNewestCreatedAtAsync(CancellationToken cancellationToken = default)
+    {
+        // One document, sorted, no source fetched beyond the one field.
+        var body = JsonSerializer.Serialize(
+            new
+            {
+                size = 1,
+                track_total_hits = false,
+                _source = CreatedAtOnly,
+                sort = new[] { new Dictionary<string, object> { ["createdAt"] = new { order = "desc" } } },
+            },
+            Json);
+
+        var response = await client.Transport.RequestAsync<StringResponse>(
+            HttpMethod.POST,
+            $"/{_options.Alias}/_search",
+            PostData.String(body),
+            cancellationToken: cancellationToken);
+
+        if (response.ApiCallDetails.HttpStatusCode != 200)
+        {
+            throw new InvalidOperationException($"Elasticsearch search failed: {response.Body}");
+        }
+
+        using var document = JsonDocument.Parse(response.Body!);
+
+        var hits = document.RootElement.GetProperty("hits").GetProperty("hits");
+
+        return hits.GetArrayLength() == 0
+            ? null
+            : hits[0].GetProperty("_source").GetProperty("createdAt").GetDateTimeOffset();
+    }
+
     /// <summary>
     /// Writes documents with external versioning, so a stale projection can never overwrite a
     /// fresher one.

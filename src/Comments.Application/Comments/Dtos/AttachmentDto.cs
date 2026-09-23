@@ -6,7 +6,6 @@ namespace Threadline.Comments.Application.Comments.Dtos;
 public sealed record AttachmentDto(
     Guid Id,
     AttachmentKind Kind,
-    AttachmentStatus Status,
     string ContentType,
     string OriginalFileName,
     long SizeBytes,
